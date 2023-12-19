@@ -1,0 +1,14 @@
+engine:
+  type: "in_memory"
+wal:
+  flushing_batch_size: 100
+  flushing_batch_timeout: "10ms"
+  max_segment_size: "10MB"
+  data_directory: "/data/spider/wal"
+network:
+  address: "127.0.0.1:3223"
+  max_connections: 100
+  idle_timeout: 5m
+logging:
+  level: "info"
+  output: "/log/output.log"
