@@ -7,24 +7,26 @@ import (
 )
 
 type TCPClient struct {
-	connection  net.Conn
-	idleTimeout time.Duration
+	connection     net.Conn
+	maxMessageSize int
+	idleTimeout    time.Duration
 }
 
-func NewTCPClient(address string, idleTimeout time.Duration) (*TCPClient, error) {
+func NewTCPClient(address string, maxMessageSize int, idleTimeout time.Duration) (*TCPClient, error) {
 	connection, err := net.Dial("tcp", address)
 	if err != nil {
 		return nil, fmt.Errorf("failed to dial: %w", err)
 	}
 
 	return &TCPClient{
-		connection:  connection,
-		idleTimeout: idleTimeout,
+		connection:     connection,
+		maxMessageSize: maxMessageSize,
+		idleTimeout:    idleTimeout,
 	}, nil
 }
 
 func (c *TCPClient) Send(request []byte) ([]byte, error) {
-	if err := c.connection.SetReadDeadline(time.Now().Add(c.idleTimeout)); err != nil {
+	if err := c.connection.SetDeadline(time.Now().Add(c.idleTimeout)); err != nil {
 		return nil, err
 	}
 
@@ -32,7 +34,7 @@ func (c *TCPClient) Send(request []byte) ([]byte, error) {
 		return nil, err
 	}
 
-	response := make([]byte, 2048)
+	response := make([]byte, c.maxMessageSize)
 	count, err := c.connection.Read(response)
 	if err != nil {
 		return nil, err

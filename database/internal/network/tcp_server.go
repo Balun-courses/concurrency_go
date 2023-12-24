@@ -59,25 +59,22 @@ func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) error
 		defer wg.Done()
 
 		for {
-			s.semaphore.Acquire()
 			connection, err := listener.Accept()
-			if err != nil || ctx.Err() != nil {
-				return
-			} else if err != nil {
-				s.logger.Warn("failed to accept", zap.Error(err))
+			if err != nil {
+				s.logger.Error("failed to accept", zap.Error(err))
+				continue
 			}
 
-			go func() {
+			s.semaphore.Acquire()
+			go func(connection net.Conn) {
 				wg.Add(1)
 				defer func() {
-					wg.Done()
 					s.semaphore.Release()
+					wg.Done()
 				}()
 
-				if ctx.Err() == nil {
-					s.handleConnection(ctx, connection, handler)
-				}
-			}()
+				s.handleConnection(ctx, connection, handler)
+			}(connection)
 		}
 	}()
 
@@ -98,14 +95,17 @@ func (s *TCPServer) handleConnection(ctx context.Context, connection net.Conn, h
 	request := make([]byte, s.messageSize)
 
 	for {
-		if err := connection.SetReadDeadline(time.Now().Add(s.idleTimeout)); err != nil {
+		if err := connection.SetDeadline(time.Now().Add(s.idleTimeout)); err != nil {
 			s.logger.Warn("failed to set read deadline", zap.Error(err))
 			break
 		}
 
 		count, err := connection.Read(request)
-		if err != nil && err != io.EOF {
-			s.logger.Warn("failed to read", zap.Error(err))
+		if err != nil {
+			if err != io.EOF {
+				s.logger.Warn("failed to read", zap.Error(err))
+			}
+
 			break
 		}
 
