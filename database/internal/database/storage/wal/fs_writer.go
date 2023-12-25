@@ -3,15 +3,17 @@ package wal
 import (
 	"bytes"
 	"encoding/gob"
+	"fmt"
 	"go.uber.org/zap"
 	"os"
-	"strconv"
+	"time"
 )
+
+var now = time.Now
 
 type FSWriter struct {
 	segment   *os.File
 	directory string
-	lastLSN   int64
 
 	segmentSize    int
 	maxSegmentSize int
@@ -27,7 +29,7 @@ func NewFSWriter(directory string, maxSegmentSize int, logger *zap.Logger) *FSWr
 	}
 }
 
-func (w *FSWriter) WriteBatch(batch []LogRecord) {
+func (w *FSWriter) WriteBatch(batch []Log) {
 	if w.segment == nil {
 		if err := w.rotateSegment(); err != nil {
 			w.acknowledgeWrite(batch, err)
@@ -35,59 +37,59 @@ func (w *FSWriter) WriteBatch(batch []LogRecord) {
 		}
 	}
 
-	for i := 0; i < len(batch); i++ {
-		if w.segmentSize > w.maxSegmentSize {
-			if err := w.rotateSegment(); err != nil {
-				w.acknowledgeWrite(batch[i:], err)
-				return
-			}
+	if w.segmentSize > w.maxSegmentSize {
+		if err := w.rotateSegment(); err != nil {
+			w.acknowledgeWrite(batch, err)
+			return
 		}
+	}
 
-		record := batch[i]
-		if err := w.writeRecord(record); err != nil {
-			record.SetResult(err)
-		}
+	logs := make([]LogData, 0, len(batch))
+	for _, log := range batch {
+		logs = append(logs, log.data)
+	}
+
+	if err := w.writeLogs(logs); err != nil {
+		w.acknowledgeWrite(batch, err)
+		return
 	}
 
 	err := w.segment.Sync()
 	if err != nil {
-		w.acknowledgeWrite(batch, err)
 		w.logger.Error("failed to sync segment file", zap.Error(err))
 	}
 
 	w.acknowledgeWrite(batch, err)
 }
 
-func (w *FSWriter) writeRecord(record LogRecord) error {
+func (w *FSWriter) writeLogs(logs []LogData) error {
 	var buffer bytes.Buffer
 	encoder := gob.NewEncoder(&buffer)
-	if err := encoder.Encode(record.data); err != nil {
-		w.logger.Warn("failed to encode record", zap.Error(err))
+	if err := encoder.Encode(logs); err != nil {
+		w.logger.Warn("failed to encode logs data", zap.Error(err))
 		return err
 	}
 
 	writtenBytes, err := w.segment.Write(buffer.Bytes())
 	if err != nil {
-		w.logger.Warn("failed to write record", zap.Error(err))
+		w.logger.Warn("failed to write logs data", zap.Error(err))
 		return err
 	}
 
 	w.segmentSize += writtenBytes
-	w.lastLSN = record.LSN()
 	return nil
 }
 
-func (w *FSWriter) acknowledgeWrite(batch []LogRecord, err error) {
-	for _, record := range batch {
-		record.SetResult(err)
+func (w *FSWriter) acknowledgeWrite(batch []Log, err error) {
+	for _, log := range batch {
+		log.SetResult(err)
 	}
 }
 
 func (w *FSWriter) rotateSegment() error {
-	lastLSNStr := strconv.FormatInt(w.lastLSN, 10)
-	segmentName := w.directory + "/" + lastLSNStr + ".wal"
+	segmentName := fmt.Sprintf("%s/wal_%d.log", w.directory, now().UnixMilli())
 
-	flags := os.O_APPEND | os.O_CREATE | os.O_WRONLY
+	flags := os.O_CREATE | os.O_WRONLY
 	segment, err := os.OpenFile(segmentName, flags, 0644)
 	if err != nil {
 		w.logger.Error("failed to create wal segment", zap.Error(err))

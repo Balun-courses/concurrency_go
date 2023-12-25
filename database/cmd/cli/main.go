@@ -2,12 +2,14 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"flag"
 	"fmt"
 	"go.uber.org/zap"
 	"os"
 	"spider/internal/network"
 	"spider/internal/tools"
+	"syscall"
 	"time"
 )
 
@@ -33,11 +35,19 @@ func main() {
 		fmt.Print("[spider] > ")
 		request, err := reader.ReadString('\n')
 		if err != nil {
+			if errors.Is(err, syscall.EPIPE) {
+				logger.Fatal("connection was closed", zap.Error(err))
+			}
+
 			logger.Error("failed to read user query", zap.Error(err))
 		}
 
 		response, err := client.Send([]byte(request))
 		if err != nil {
+			if errors.Is(err, syscall.EPIPE) {
+				logger.Fatal("connection was closed", zap.Error(err))
+			}
+
 			logger.Error("failed to send query", zap.Error(err))
 		}
 

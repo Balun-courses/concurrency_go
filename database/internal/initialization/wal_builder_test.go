@@ -11,25 +11,25 @@ import (
 func TestCreateWALWithoutConfig(t *testing.T) {
 	t.Parallel()
 
-	logger, err := CreateWAL(nil, zap.NewNop())
+	wal, err := CreateWAL(nil, zap.NewNop())
 	require.NoError(t, err)
-	require.NotNil(t, logger)
+	require.Nil(t, wal)
 }
 
 func TestCreateWALWithEmptyConfigFields(t *testing.T) {
 	t.Parallel()
 
-	logger, err := CreateWAL(&configuration.WALConfig{}, zap.NewNop())
+	wal, err := CreateWAL(&configuration.WALConfig{}, zap.NewNop())
 	require.NoError(t, err)
-	require.NotNil(t, logger)
+	require.NotNil(t, wal)
 }
 
 func TestCreateWALWithIncorrectSegmentSize(t *testing.T) {
 	t.Parallel()
 
-	logger, err := CreateWAL(&configuration.WALConfig{MaxSegmentSize: "100PB"}, zap.NewNop())
+	wal, err := CreateWAL(&configuration.WALConfig{MaxSegmentSize: "100PB"}, zap.NewNop())
 	require.Error(t, err, "max segment size is incorrect")
-	require.Nil(t, logger)
+	require.Nil(t, wal)
 }
 
 func TestCreateWAL(t *testing.T) {
@@ -42,7 +42,7 @@ func TestCreateWAL(t *testing.T) {
 		DataDirectory:        "/data/wal",
 	}
 
-	logger, err := CreateWAL(cfg, zap.NewNop())
+	wal, err := CreateWAL(cfg, zap.NewNop())
 	require.NoError(t, err)
-	require.NotNil(t, logger)
+	require.NotNil(t, wal)
 }

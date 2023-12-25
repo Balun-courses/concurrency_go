@@ -44,12 +44,17 @@ func NewInitializer(cfg *configuration.Config) (*Initializer, error) {
 		return nil, fmt.Errorf("failed to initialize network: %w", err)
 	}
 
-	return &Initializer{
-		wal:    wal,
+	initializer := &Initializer{
 		engine: dbEngine,
 		server: tcpServer,
 		logger: logger,
-	}, nil
+	}
+
+	if wal != nil {
+		initializer.wal = wal
+	}
+
+	return initializer, nil
 }
 
 func (i *Initializer) StartDatabase(ctx context.Context) error {

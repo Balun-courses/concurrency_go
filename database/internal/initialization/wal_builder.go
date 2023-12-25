@@ -41,9 +41,11 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 		if cfg.DataDirectory != "" {
 			dataDirectory = cfg.DataDirectory
 		}
-	}
 
-	fsReader := wal.NewFSReader(dataDirectory, logger)
-	fsWriter := wal.NewFSWriter(dataDirectory, maxSegmentSize, logger)
-	return wal.NewWAL(fsWriter, fsReader, flushingBatchTimeout, flushingBatchSize), nil
+		fsReader := wal.NewFSReader(dataDirectory, logger)
+		fsWriter := wal.NewFSWriter(dataDirectory, maxSegmentSize, logger)
+		return wal.NewWAL(fsWriter, fsReader, flushingBatchTimeout, flushingBatchSize), nil
+	} else {
+		return nil, nil
+	}
 }

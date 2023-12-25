@@ -9,66 +9,98 @@ import (
 )
 
 type fsWriter interface {
-	WriteBatch([]LogRecord)
+	WriteBatch([]Log)
+}
+
+type fsReader interface {
+	ReadLogs() ([]LogData, error)
 }
 
 type WAL struct {
 	fsWriter     fsWriter
+	fsReader     fsReader
 	flushTimeout time.Duration
 	maxBatchSize int
 
 	mutex   sync.Mutex
-	batch   []LogRecord
-	batches chan []LogRecord
+	batch   []Log
+	batches chan []Log
+
+	closeCh     chan struct{}
+	closeDoneCh chan struct{}
 }
 
-func NewWAL(fsWriter fsWriter, flushTimeout time.Duration, maxBatchSize int) *WAL {
+func NewWAL(
+	fsWriter fsWriter,
+	fsReader fsReader,
+	flushTimeout time.Duration,
+	maxBatchSize int,
+) *WAL {
 	return &WAL{
 		fsWriter:     fsWriter,
+		fsReader:     fsReader,
 		flushTimeout: flushTimeout,
 		maxBatchSize: maxBatchSize,
-		batches:      make(chan []LogRecord, 2), // TODO
+		batches:      make(chan []Log, 1),
+		closeCh:      make(chan struct{}),
+		closeDoneCh:  make(chan struct{}),
 	}
 }
 
-func (w *WAL) StartFlushing(ctx context.Context) {
-	for {
-		select {
-		case <-ctx.Done(): // TODO
-			return
-		default:
-		}
+func (w *WAL) Recover() ([]LogData, error) {
+	return w.fsReader.ReadLogs()
+}
 
-		tools.WithLock(&w.mutex, func() {
-			if len(w.batch) != 0 {
-				w.batches <- w.batch
-				w.batch = nil
+func (w *WAL) Start() {
+	go func() {
+		defer func() {
+			w.closeDoneCh <- struct{}{}
+		}()
+
+		for {
+			select {
+			case <-w.closeCh:
+				w.flushBatch()
+				return
+			case batch := <-w.batches:
+				w.fsWriter.WriteBatch(batch)
+			case <-time.After(w.flushTimeout):
+				w.flushBatch()
 			}
-		})
-
-		timer := time.NewTimer(w.flushTimeout)
-
-		select {
-		case <-ctx.Done():
-			return
-		case batch := <-w.batches:
-			w.fsWriter.WriteBatch(batch)
-		case <-timer.C:
 		}
+	}()
+}
+
+func (w *WAL) Shutdown() {
+	close(w.closeCh)
+	<-w.closeDoneCh
+}
+
+func (w *WAL) Set(ctx context.Context, key, value string) tools.FutureError {
+	return w.push(ctx, compute.SetCommandID, []string{key, value})
+}
+
+func (w *WAL) Del(ctx context.Context, key string) tools.FutureError {
+	return w.push(ctx, compute.DelCommandID, []string{key})
+}
+
+func (w *WAL) flushBatch() {
+	var batch []Log
+	tools.WithLock(&w.mutex, func() {
+		if len(w.batch) != 0 {
+			batch = w.batch
+			w.batch = nil
+		}
+	})
+
+	if len(batch) != 0 {
+		w.fsWriter.WriteBatch(batch)
 	}
 }
 
-func (w *WAL) PushSET(ctx context.Context, args []string) tools.Future[error] {
-	return w.push(ctx, compute.SetCommandID, args)
-}
-
-func (w *WAL) PushDEL(ctx context.Context, args []string) tools.Future[error] {
-	return w.push(ctx, compute.DelCommandID, args)
-}
-
-func (w *WAL) push(ctx context.Context, commandID int, args []string) tools.Future[error] {
+func (w *WAL) push(ctx context.Context, commandID int, args []string) tools.FutureError {
 	txID := ctx.Value("tx").(int64)
-	record := NewLogRecord(txID, commandID, args)
+	record := NewLog(txID, commandID, args)
 
 	tools.WithLock(&w.mutex, func() {
 		w.batch = append(w.batch, record)
