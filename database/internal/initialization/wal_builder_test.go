@@ -27,7 +27,7 @@ func TestCreateWALWithEmptyConfigFields(t *testing.T) {
 func TestCreateWALWithIncorrectSegmentSize(t *testing.T) {
 	t.Parallel()
 
-	logger, err := CreateWAL(&configuration.WALConfig{MaxSegmentSize: "100INCORRECT"}, zap.NewNop())
+	logger, err := CreateWAL(&configuration.WALConfig{MaxSegmentSize: "100PB"}, zap.NewNop())
 	require.Error(t, err, "max segment size is incorrect")
 	require.Nil(t, logger)
 }
@@ -36,7 +36,7 @@ func TestCreateWAL(t *testing.T) {
 	t.Parallel()
 
 	cfg := &configuration.WALConfig{
-		FlushingBatchSize:    200,
+		FlushingBatchLength:  200,
 		FlushingBatchTimeout: 20 * time.Millisecond,
 		MaxSegmentSize:       "20MB",
 		DataDirectory:        "/data/wal",

@@ -19,7 +19,7 @@ type EngineConfig struct {
 }
 
 type WALConfig struct {
-	FlushingBatchSize    int           `yaml:"flushing_batch_size"`
+	FlushingBatchLength  int           `yaml:"flushing_batch_length"`
 	FlushingBatchTimeout time.Duration `yaml:"flushing_batch_timeout"`
 	MaxSegmentSize       string        `yaml:"max_segment_size"`
 	DataDirectory        string        `yaml:"data_directory"`
@@ -28,7 +28,7 @@ type WALConfig struct {
 type NetworkConfig struct {
 	Address        string        `yaml:"address"`
 	MaxConnections int           `yaml:"max_connections"`
-	MaxMessageSize int           `yaml:"max_message_size"`
+	MaxMessageSize string        `yaml:"max_message_size"`
 	IdleTimeout    time.Duration `yaml:"idle_timeout"`
 }
 

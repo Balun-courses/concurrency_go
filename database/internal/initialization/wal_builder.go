@@ -2,17 +2,17 @@ package initialization
 
 import (
 	"errors"
-	"github.com/inhies/go-bytesize"
 	"go.uber.org/zap"
 	"spider/internal/configuration"
 	"spider/internal/database/storage/wal"
+	"spider/internal/tools"
 	"time"
 )
 
 const defaultFlushingBatchSize = 100
 const defaultFlushingBatchTimeout = time.Millisecond * 10
 const defaultMaxSegmentSize = 10 << 20
-const defaultDataDirectory = "/data/spider/wal"
+const defaultDataDirectory = "./data/spider/wal"
 
 func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, error) {
 	flushingBatchSize := defaultFlushingBatchSize
@@ -21,8 +21,8 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 	dataDirectory := defaultDataDirectory
 
 	if cfg != nil {
-		if cfg.FlushingBatchSize != 0 {
-			flushingBatchSize = cfg.FlushingBatchSize
+		if cfg.FlushingBatchLength != 0 {
+			flushingBatchSize = cfg.FlushingBatchLength
 		}
 
 		if cfg.FlushingBatchTimeout != 0 {
@@ -30,12 +30,12 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 		}
 
 		if cfg.MaxSegmentSize != "" {
-			_, err := bytesize.Parse(cfg.MaxSegmentSize)
+			size, err := tools.ParseSize(cfg.MaxSegmentSize)
 			if err != nil {
 				return nil, errors.New("max segment size is incorrect")
 			}
 
-			// maxSegmentSize = size  TODO
+			maxSegmentSize = size
 		}
 
 		if cfg.DataDirectory != "" {
@@ -43,6 +43,7 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 		}
 	}
 
+	fsReader := wal.NewFSReader(dataDirectory, logger)
 	fsWriter := wal.NewFSWriter(dataDirectory, maxSegmentSize, logger)
-	return wal.NewWAL(fsWriter, flushingBatchTimeout, flushingBatchSize), nil
+	return wal.NewWAL(fsWriter, fsReader, flushingBatchTimeout, flushingBatchSize), nil
 }

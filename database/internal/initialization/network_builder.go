@@ -1,9 +1,11 @@
 package initialization
 
 import (
+	"errors"
 	"go.uber.org/zap"
 	"spider/internal/configuration"
 	"spider/internal/network"
+	"spider/internal/tools"
 	"time"
 )
 
@@ -27,8 +29,13 @@ func CreateNetwork(cfg *configuration.NetworkConfig, logger *zap.Logger) (*netwo
 			maxConnectionsNumber = cfg.MaxConnections
 		}
 
-		if cfg.MaxMessageSize != 0 {
-			maxMessageSize = cfg.MaxMessageSize
+		if cfg.MaxMessageSize != "" {
+			size, err := tools.ParseSize(cfg.MaxMessageSize)
+			if err != nil {
+				return nil, errors.New("incorrect max message size")
+			}
+
+			maxMessageSize = size
 		}
 
 		if cfg.IdleTimeout != 0 {

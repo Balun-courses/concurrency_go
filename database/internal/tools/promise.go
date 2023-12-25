@@ -11,8 +11,9 @@ func NewPromise[T any]() Promise[T] {
 	}
 }
 
+// Set don't use with any goroutines
 func (p *Promise[T]) Set(value T) {
-	if p.promised == true {
+	if p.promised {
 		return
 	}
 

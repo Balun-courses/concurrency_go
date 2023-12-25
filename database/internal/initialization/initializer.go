@@ -13,6 +13,7 @@ import (
 )
 
 type Initializer struct {
+	wal    storage.WAL
 	engine storage.Engine
 	server *network.TCPServer
 	logger *zap.Logger
@@ -28,6 +29,11 @@ func NewInitializer(cfg *configuration.Config) (*Initializer, error) {
 		return nil, fmt.Errorf("failed to initialize logger: %w", err)
 	}
 
+	wal, err := CreateWAL(cfg.WAL, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize wal: %w", err)
+	}
+
 	dbEngine, err := CreateEngine(cfg.Engine, logger)
 	if err != nil {
 		return nil, fmt.Errorf("failed to initialize engine: %w", err)
@@ -39,6 +45,7 @@ func NewInitializer(cfg *configuration.Config) (*Initializer, error) {
 	}
 
 	return &Initializer{
+		wal:    wal,
 		engine: dbEngine,
 		server: tcpServer,
 		logger: logger,
@@ -58,34 +65,32 @@ func (i *Initializer) StartDatabase(ctx context.Context) error {
 
 	database, err := database.NewDatabase(compute, storage, i.logger)
 	if err != nil {
-		i.logger.Error("failed to start application", zap.Error(err))
+		i.logger.Error("failed to start database", zap.Error(err))
 		return err
 	}
 
-	i.server.HandleQueries(ctx, func(ctx context.Context, query []byte) []byte {
+	return i.server.HandleQueries(ctx, func(ctx context.Context, query []byte) []byte {
 		response := database.HandleQuery(ctx, string(query))
 		return []byte(response)
 	})
-
-	return nil
 }
 
 func (i *Initializer) createComputeLayer() (*compute.Compute, error) {
 	queryParser, err := compute.NewParser(i.logger)
 	if err != nil {
-		i.logger.Error("failed to start application", zap.Error(err))
+		i.logger.Error("failed to initialize parser", zap.Error(err))
 		return nil, err
 	}
 
 	queryAnalyzer, err := compute.NewAnalyzer(i.logger)
 	if err != nil {
-		i.logger.Error("failed to start application", zap.Error(err))
+		i.logger.Error("failed to initialize analyzer", zap.Error(err))
 		return nil, err
 	}
 
 	compute, err := compute.NewCompute(queryParser, queryAnalyzer, i.logger)
 	if err != nil {
-		i.logger.Error("failed to start application", zap.Error(err))
+		i.logger.Error("failed to initialize compute layer", zap.Error(err))
 		return nil, err
 	}
 
@@ -93,9 +98,9 @@ func (i *Initializer) createComputeLayer() (*compute.Compute, error) {
 }
 
 func (i *Initializer) createStorageLayer() (*storage.Storage, error) {
-	storage, err := storage.NewStorage(i.engine, nil, i.logger) // TODO
+	storage, err := storage.NewStorage(i.engine, i.wal, i.logger)
 	if err != nil {
-		i.logger.Error("failed to start application", zap.Error(err))
+		i.logger.Error("failed to initialize storage layer", zap.Error(err))
 		return nil, err
 	}
 

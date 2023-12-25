@@ -61,6 +61,10 @@ func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) error
 		for {
 			connection, err := listener.Accept()
 			if err != nil {
+				if errors.Is(err, net.ErrClosed) {
+					return
+				}
+
 				s.logger.Error("failed to accept", zap.Error(err))
 				continue
 			}

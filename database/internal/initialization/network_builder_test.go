@@ -19,6 +19,14 @@ func TestCreateNetworkWithEmptyConfigFields(t *testing.T) {
 	require.NotNil(t, server)
 }
 
+func TestCreateLoggerWithIncorrectMessageSize(t *testing.T) {
+	t.Parallel()
+
+	server, err := CreateNetwork(&configuration.NetworkConfig{MaxMessageSize: "10PB"}, zap.NewNop())
+	require.Error(t, err)
+	require.Nil(t, server)
+}
+
 func TestCreateNetwork(t *testing.T) {
 	t.Parallel()
 

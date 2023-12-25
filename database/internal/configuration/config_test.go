@@ -38,13 +38,14 @@ func TestLoadConfig(t *testing.T) {
 
 	require.Equal(t, "in_memory", cfg.Engine.Type)
 
-	require.Equal(t, 100, cfg.WAL.FlushingBatchSize)
+	require.Equal(t, 100, cfg.WAL.FlushingBatchLength)
 	require.Equal(t, time.Millisecond*10, cfg.WAL.FlushingBatchTimeout)
 	require.Equal(t, "10MB", cfg.WAL.MaxSegmentSize)
 	require.Equal(t, "/data/spider/wal", cfg.WAL.DataDirectory)
 
 	require.Equal(t, "127.0.0.1:3223", cfg.Network.Address)
 	require.Equal(t, 100, cfg.Network.MaxConnections)
+	require.Equal(t, "4KB", cfg.Network.MaxMessageSize)
 	require.Equal(t, time.Minute*5, cfg.Network.IdleTimeout)
 
 	require.Equal(t, "info", cfg.Logging.Level)
