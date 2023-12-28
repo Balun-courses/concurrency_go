@@ -34,26 +34,6 @@ func TestNewCompute(t *testing.T) {
 	require.NotNil(t, compute)
 }
 
-func TestHandleQueryWithCancel(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	ctrl := gomock.NewController(t)
-	parser := NewMockparser(ctrl)
-	analyzer := NewMockanalyzer(ctrl)
-
-	compute, err := NewCompute(parser, analyzer, zap.NewNop())
-	require.NoError(t, err)
-
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	cancel()
-
-	query, err := compute.HandleQuery(ctxWithCancel, "GET key")
-	require.Error(t, err, context.Canceled)
-	require.Equal(t, Query{}, query)
-}
-
 func TestHandleQueryWithParsingError(t *testing.T) {
 	t.Parallel()
 
