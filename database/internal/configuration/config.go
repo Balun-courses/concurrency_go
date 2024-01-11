@@ -8,10 +8,11 @@ import (
 )
 
 type Config struct {
-	Engine  *EngineConfig  `yaml:"engine"`
-	WAL     *WALConfig     `yaml:"wal"`
-	Network *NetworkConfig `yaml:"network"`
-	Logging *LoggingConfig `yaml:"logging"`
+	Engine      *EngineConfig      `yaml:"engine"`
+	WAL         *WALConfig         `yaml:"wal"`
+	Replication *ReplicationConfig `yaml:"replication"`
+	Network     *NetworkConfig     `yaml:"network"`
+	Logging     *LoggingConfig     `yaml:"logging"`
 }
 
 type EngineConfig struct {
@@ -23,6 +24,12 @@ type WALConfig struct {
 	FlushingBatchTimeout time.Duration `yaml:"flushing_batch_timeout"`
 	MaxSegmentSize       string        `yaml:"max_segment_size"`
 	DataDirectory        string        `yaml:"data_directory"`
+}
+
+type ReplicationConfig struct {
+	ReplicaType   string        `yaml:"replica_type"`
+	MasterAddress string        `yaml:"master_address"`
+	SyncInterval  time.Duration `yaml:"sync_interval"`
 }
 
 type NetworkConfig struct {

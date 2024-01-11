@@ -69,9 +69,10 @@ func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) error
 				continue
 			}
 
-			s.semaphore.Acquire()
+			wg.Add(1)
 			go func(connection net.Conn) {
-				wg.Add(1)
+				s.semaphore.Acquire()
+
 				defer func() {
 					s.semaphore.Release()
 					wg.Done()

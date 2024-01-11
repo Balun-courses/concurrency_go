@@ -26,10 +26,16 @@ type WAL interface {
 type Storage struct {
 	engine Engine
 	wal    WAL
+	stream <-chan []wal.LogData
 	logger *zap.Logger
 }
 
-func NewStorage(engine Engine, wal WAL, logger *zap.Logger) (*Storage, error) {
+func NewStorage(
+	engine Engine,
+	wal WAL,
+	replicationStream <-chan []wal.LogData,
+	logger *zap.Logger,
+) (*Storage, error) {
 	if engine == nil {
 		return nil, errors.New("engine is invalid")
 	}
@@ -42,15 +48,16 @@ func NewStorage(engine Engine, wal WAL, logger *zap.Logger) (*Storage, error) {
 		engine: engine,
 		wal:    wal,
 		logger: logger,
+		//stream: replicationStream,
 	}
 
 	if wal != nil {
-		records, err := wal.Recover()
+		logs, err := wal.Recover()
 		if err != nil {
 			logger.Error("failed to recover database from WAL")
 		}
 
-		storage.recover(records)
+		storage.applyLogs(logs)
 		wal.Start()
 	}
 
@@ -58,6 +65,10 @@ func NewStorage(engine Engine, wal WAL, logger *zap.Logger) (*Storage, error) {
 }
 
 func (s *Storage) Set(ctx context.Context, key, value string) error {
+	if s.stream != nil {
+		return errors.New("mutable transaction on slave")
+	}
+
 	if s.wal != nil {
 		future := s.wal.Set(ctx, key, value)
 		if err := future.Get(); err != nil {
@@ -69,12 +80,11 @@ func (s *Storage) Set(ctx context.Context, key, value string) error {
 	return nil
 }
 
-func (s *Storage) Get(ctx context.Context, key string) (string, error) {
-	value, _ := s.engine.Get(ctx, key)
-	return value, nil
-}
-
 func (s *Storage) Del(ctx context.Context, key string) error {
+	if s.stream != nil {
+		return errors.New("mutable transaction on slave")
+	}
+
 	if s.wal != nil {
 		future := s.wal.Del(ctx, key)
 		if err := future.Get(); err != nil {
@@ -86,7 +96,18 @@ func (s *Storage) Del(ctx context.Context, key string) error {
 	return nil
 }
 
-func (s *Storage) recover(logs []wal.LogData) {
+func (s *Storage) Get(ctx context.Context, key string) (string, error) {
+	value, _ := s.engine.Get(ctx, key)
+	return value, nil
+}
+
+func (s *Storage) synchronizeReplica() {
+	for logs := range s.stream {
+		s.applyLogs(logs)
+	}
+}
+
+func (s *Storage) applyLogs(logs []wal.LogData) {
 	for _, log := range logs {
 		switch log.CommandID {
 		case compute.SetCommandID:

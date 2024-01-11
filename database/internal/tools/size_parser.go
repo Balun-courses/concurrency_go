@@ -18,11 +18,11 @@ func ParseSize(text string) (int, error) {
 	parameter := text[idx:]
 	switch parameter {
 	case "GB", "Gb", "gb":
-		return size * 1 << 30, nil
+		return size << 30, nil
 	case "MB", "Mb", "mb":
-		return size * 1 << 20, nil
+		return size << 20, nil
 	case "KB", "Kb", "kb":
-		return size * 1 << 10, nil
+		return size << 10, nil
 	case "B", "b", "":
 		return size, nil
 	default:

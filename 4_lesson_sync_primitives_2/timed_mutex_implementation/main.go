@@ -23,13 +23,13 @@ func (m *TimedMutex) TryLock() bool {
 
 func (m *TimedMutex) TryLockFor(duration time.Duration) bool {
 	period := duration / 10
-	for period > 0 {
+	for duration > 0 {
 		if m.TryLock() {
 			return true
 		}
 
 		time.Sleep(period)
-		period--
+		duration -= period
 	}
 
 	return false

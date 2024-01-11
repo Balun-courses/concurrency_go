@@ -26,6 +26,10 @@ func TestFailedInitializerCreation(t *testing.T) {
 	initializer, err = NewInitializer(&configuration.Config{Network: &configuration.NetworkConfig{MaxMessageSize: "10PB"}})
 	require.Error(t, err)
 	require.Nil(t, initializer)
+
+	initializer, err = NewInitializer(&configuration.Config{Replication: &configuration.ReplicationConfig{ReplicaType: "non-master"}})
+	require.Error(t, err)
+	require.Nil(t, initializer)
 }
 
 func TestInitializer(t *testing.T) {

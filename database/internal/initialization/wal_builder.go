@@ -4,6 +4,7 @@ import (
 	"errors"
 	"go.uber.org/zap"
 	"spider/internal/configuration"
+	"spider/internal/database/storage"
 	"spider/internal/database/storage/wal"
 	"spider/internal/tools"
 	"time"
@@ -12,13 +13,13 @@ import (
 const defaultFlushingBatchSize = 100
 const defaultFlushingBatchTimeout = time.Millisecond * 10
 const defaultMaxSegmentSize = 10 << 20
-const defaultDataDirectory = "./data/spider/wal"
+const defaultWALDataDirectory = "./data/spider/wal"
 
-func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, error) {
+func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (storage.WAL, error) {
 	flushingBatchSize := defaultFlushingBatchSize
 	flushingBatchTimeout := defaultFlushingBatchTimeout
 	maxSegmentSize := defaultMaxSegmentSize
-	dataDirectory := defaultDataDirectory
+	dataDirectory := defaultWALDataDirectory
 
 	if cfg != nil {
 		if cfg.FlushingBatchLength != 0 {

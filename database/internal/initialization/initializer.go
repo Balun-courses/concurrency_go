@@ -5,10 +5,13 @@ import (
 	"errors"
 	"fmt"
 	"go.uber.org/zap"
+	"golang.org/x/sync/errgroup"
 	"spider/internal/configuration"
 	"spider/internal/database"
 	"spider/internal/database/compute"
 	"spider/internal/database/storage"
+	"spider/internal/database/storage/replication"
+	"spider/internal/database/storage/wal"
 	"spider/internal/network"
 )
 
@@ -16,6 +19,8 @@ type Initializer struct {
 	wal    storage.WAL
 	engine storage.Engine
 	server *network.TCPServer
+	slave  *replication.Slave
+	master *replication.Master
 	logger *zap.Logger
 }
 
@@ -44,6 +49,11 @@ func NewInitializer(cfg *configuration.Config) (*Initializer, error) {
 		return nil, fmt.Errorf("failed to initialize network: %w", err)
 	}
 
+	replica, err := CreateReplica(cfg.Replication, cfg.WAL, logger)
+	if err != nil {
+		return nil, fmt.Errorf("failed to initialize replication: %w", err)
+	}
+
 	initializer := &Initializer{
 		engine: dbEngine,
 		server: tcpServer,
@@ -54,6 +64,7 @@ func NewInitializer(cfg *configuration.Config) (*Initializer, error) {
 		initializer.wal = wal
 	}
 
+	initializer.initializeReplication(replica)
 	return initializer, nil
 }
 
@@ -63,21 +74,31 @@ func (i *Initializer) StartDatabase(ctx context.Context) error {
 		return err
 	}
 
-	storage, err := i.createStorageLayer()
+	storage, err := i.createStorageLayer(ctx)
 	if err != nil {
 		return err
 	}
 
 	database, err := database.NewDatabase(compute, storage, i.logger)
 	if err != nil {
-		i.logger.Error("failed to start database", zap.Error(err))
 		return err
 	}
 
-	return i.server.HandleQueries(ctx, func(ctx context.Context, query []byte) []byte {
-		response := database.HandleQuery(ctx, string(query))
-		return []byte(response)
+	group, groupCtx := errgroup.WithContext(ctx)
+	if i.master != nil {
+		group.Go(func() error {
+			return i.master.HandleSynchronizations(groupCtx)
+		})
+	}
+
+	group.Go(func() error {
+		return i.server.HandleQueries(groupCtx, func(ctx context.Context, query []byte) []byte {
+			response := database.HandleQuery(ctx, string(query))
+			return []byte(response)
+		})
 	})
+
+	return group.Wait()
 }
 
 func (i *Initializer) createComputeLayer() (*compute.Compute, error) {
@@ -102,12 +123,38 @@ func (i *Initializer) createComputeLayer() (*compute.Compute, error) {
 	return compute, nil
 }
 
-func (i *Initializer) createStorageLayer() (*storage.Storage, error) {
-	storage, err := storage.NewStorage(i.engine, i.wal, i.logger)
+func (i *Initializer) createStorageLayer(ctx context.Context) (*storage.Storage, error) {
+	var replicationStream <-chan []wal.LogData
+	if i.slave != nil {
+		i.slave.StartSynchronization(ctx)
+		replicationStream = i.slave.ReplicationStream()
+	}
+
+	storage, err := storage.NewStorage(i.engine, i.wal, replicationStream, i.logger)
 	if err != nil {
 		i.logger.Error("failed to initialize storage layer", zap.Error(err))
 		return nil, err
 	}
 
 	return storage, nil
+}
+
+func (i *Initializer) initializeReplication(replica interface{}) {
+	if replica == nil {
+		return
+	}
+
+	if i.wal == nil {
+		i.logger.Error("wal is required for replication")
+		return
+	}
+
+	switch v := replica.(type) {
+	case *replication.Slave:
+		i.slave = v
+	case *replication.Master:
+		i.master = v
+	default:
+		i.logger.Error("incorrect replication type")
+	}
 }

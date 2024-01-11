@@ -34,7 +34,7 @@ func (m *RWMutex) Lock() {
 }
 
 func (m *RWMutex) Unlock() {
-	m.mutex.Unlock()
+	m.mutex.Lock()
 	defer m.mutex.Unlock()
 
 	m.hasWriter = false

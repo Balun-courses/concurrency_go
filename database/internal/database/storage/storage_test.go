@@ -18,15 +18,15 @@ func TestNewStorage(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	engine := NewMockEngine(ctrl)
 
-	storage, err := NewStorage(nil, nil, nil)
+	storage, err := NewStorage(nil, nil, nil, nil)
 	require.Error(t, err, "engine is invalid")
 	require.Nil(t, storage)
 
-	storage, err = NewStorage(engine, nil, nil)
+	storage, err = NewStorage(engine, nil, nil, nil)
 	require.Error(t, err, "logger is invalid")
 	require.Nil(t, storage)
 
-	storage, err = NewStorage(engine, nil, zap.NewNop())
+	storage, err = NewStorage(engine, nil, nil, zap.NewNop())
 	require.NoError(t, err)
 	require.NotNil(t, storage)
 }
@@ -41,7 +41,7 @@ func TestSetWithCanceledContext(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	engine := NewMockEngine(ctrl)
 
-	storage, err := NewStorage(engine, nil, zap.NewNop())
+	storage, err := NewStorage(engine, nil, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	err = storage.Set(ctxWithCancel, "key", "value")
@@ -64,7 +64,7 @@ func TestSetWithWALError(t *testing.T) {
 		Set(ctx, "key", "value").
 		Return(tools.NewFuture(result))
 
-	storage, err := NewStorage(engine, wal, zap.NewNop())
+	storage, err := NewStorage(engine, wal, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	err = storage.Set(ctx, "key", "value")
@@ -89,7 +89,7 @@ func TestSuccessfulSet(t *testing.T) {
 		Set(ctx, "key", "value").
 		Return(tools.NewFuture(result))
 
-	storage, err := NewStorage(engine, wal, zap.NewNop())
+	storage, err := NewStorage(engine, wal, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	err = storage.Set(ctx, "key", "value")
@@ -106,7 +106,7 @@ func TestGetWithCanceledContext(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	engine := NewMockEngine(ctrl)
 
-	storage, err := NewStorage(engine, nil, zap.NewNop())
+	storage, err := NewStorage(engine, nil, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	value, err := storage.Get(ctxWithCancel, "key")
@@ -127,7 +127,7 @@ func TestSuccessfulGet(t *testing.T) {
 	engine.EXPECT().
 		Get(ctx, "key").Return("value", true)
 
-	storage, err := NewStorage(engine, nil, zap.NewNop())
+	storage, err := NewStorage(engine, nil, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	value, err := storage.Get(ctx, "key")
@@ -145,7 +145,7 @@ func TestDelWithCanceledContext(t *testing.T) {
 	ctrl := gomock.NewController(t)
 	engine := NewMockEngine(ctrl)
 
-	storage, err := NewStorage(engine, nil, zap.NewNop())
+	storage, err := NewStorage(engine, nil, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	err = storage.Del(ctxWithCancel, "key")
@@ -168,7 +168,7 @@ func TestDelWithWALError(t *testing.T) {
 		Del(ctx, "key").
 		Return(tools.NewFuture(result))
 
-	storage, err := NewStorage(engine, wal, zap.NewNop())
+	storage, err := NewStorage(engine, wal, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	err = storage.Del(ctx, "key")
@@ -193,7 +193,7 @@ func TestSuccessfulDel(t *testing.T) {
 		Del(ctx, "key").
 		Return(tools.NewFuture(result))
 
-	storage, err := NewStorage(engine, wal, zap.NewNop())
+	storage, err := NewStorage(engine, wal, nil, zap.NewNop())
 	require.NoError(t, err)
 
 	err = storage.Del(ctx, "key")

@@ -43,6 +43,10 @@ func TestLoadConfig(t *testing.T) {
 	require.Equal(t, "10MB", cfg.WAL.MaxSegmentSize)
 	require.Equal(t, "/data/spider/wal", cfg.WAL.DataDirectory)
 
+	require.Equal(t, "slave", cfg.Replication.ReplicaType)
+	require.Equal(t, "127.0.0.1:3232", cfg.Replication.MasterAddress)
+	require.Equal(t, time.Second, cfg.Replication.SyncInterval)
+
 	require.Equal(t, "127.0.0.1:3223", cfg.Network.Address)
 	require.Equal(t, 100, cfg.Network.MaxConnections)
 	require.Equal(t, "4KB", cfg.Network.MaxMessageSize)
