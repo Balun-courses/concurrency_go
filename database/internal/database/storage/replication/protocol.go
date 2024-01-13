@@ -7,26 +7,26 @@ import (
 )
 
 type Request struct {
-	LastSegmentTimestamp int64
+	LastSegmentName string
 }
 
-func NewRequest(lastSegmentTimestamp int64) Request {
+func NewRequest(lastSegmentName string) Request {
 	return Request{
-		LastSegmentTimestamp: lastSegmentTimestamp,
+		LastSegmentName: lastSegmentName,
 	}
 }
 
 type Response struct {
-	Succeed          bool
-	SegmentTimestamp int64
-	SegmentData      []byte
+	Succeed     bool
+	SegmentName string
+	SegmentData []byte
 }
 
-func NewResponse(succeed bool, segmentTimestamp int64, segmentData []byte) Response {
+func NewResponse(succeed bool, segmentName string, segmentData []byte) Response {
 	return Response{
-		Succeed:          succeed,
-		SegmentTimestamp: segmentTimestamp,
-		SegmentData:      segmentData,
+		Succeed:     succeed,
+		SegmentName: segmentName,
+		SegmentData: segmentData,
 	}
 }
 

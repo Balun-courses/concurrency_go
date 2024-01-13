@@ -5,7 +5,9 @@ import (
 	"context"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"go.uber.org/zap"
+	"os"
 	"spider/internal/database/storage/wal"
 	"time"
 )
@@ -15,14 +17,15 @@ type TCPClient interface {
 }
 
 type Slave struct {
-	logger        *zap.Logger
-	client        TCPClient
-	stream        chan []wal.LogData
-	syncInterval  time.Duration
-	lastSegmentTS int64
+	logger          *zap.Logger
+	client          TCPClient
+	stream          chan []wal.LogData
+	syncInterval    time.Duration
+	walDirectory    string
+	lastSegmentName string
 }
 
-func NewSlave(client TCPClient, syncInterval time.Duration, logger *zap.Logger) (*Slave, error) {
+func NewSlave(client TCPClient, walDirectory string, syncInterval time.Duration, logger *zap.Logger) (*Slave, error) {
 	if client == nil {
 		return nil, errors.New("client is invalid")
 	}
@@ -31,11 +34,18 @@ func NewSlave(client TCPClient, syncInterval time.Duration, logger *zap.Logger) 
 		return nil, errors.New("logger is invalid")
 	}
 
+	segmentName, err := wal.SegmentLast(walDirectory)
+	if err != nil {
+		logger.Error("failed to find last WAL segment", zap.Error(err))
+	}
+
 	return &Slave{
-		client:       client,
-		logger:       logger,
-		stream:       make(chan []wal.LogData, 1),
-		syncInterval: syncInterval,
+		client:          client,
+		logger:          logger,
+		stream:          make(chan []wal.LogData, 1),
+		syncInterval:    syncInterval,
+		walDirectory:    walDirectory,
+		lastSegmentName: segmentName,
 	}, nil
 }
 
@@ -63,7 +73,7 @@ func (s *Slave) StartSynchronization(ctx context.Context) {
 }
 
 func (s *Slave) synchronize() {
-	request := NewRequest(s.lastSegmentTS)
+	request := NewRequest(s.lastSegmentName)
 	requestData, err := Encode(&request)
 	if err != nil {
 		s.logger.Error("failed to encode replication request", zap.Error(err))
@@ -79,17 +89,53 @@ func (s *Slave) synchronize() {
 		s.logger.Error("failed to decode replication response", zap.Error(err))
 	}
 
-	if !response.Succeed {
-		s.logger.Error("replication error from master")
-	} else if response.SegmentTimestamp != 0 {
-		var logs []wal.LogData
-		buffer := bytes.NewBuffer(response.SegmentData)
-		decoder := gob.NewDecoder(buffer)
-		if err = decoder.Decode(&logs); err != nil {
-			s.logger.Error("failed to decode replicated logs", zap.Error(err))
-		}
-
-		s.lastSegmentTS = response.SegmentTimestamp
-		s.stream <- logs
+	if response.Succeed {
+		s.handleResponse(response)
+	} else {
+		s.logger.Error("failed to apply replication data: master error")
 	}
+}
+
+func (s *Slave) handleResponse(response Response) {
+	if response.SegmentName == "" {
+		s.logger.Debug("no changes from replication")
+		return
+	}
+
+	if err := s.saveWALSegment(response.SegmentName, response.SegmentData); err != nil {
+		s.logger.Error("failed to apply replication data", zap.Error(err))
+	}
+
+	if err := s.applyDataToEngine(response.SegmentData); err != nil {
+		s.logger.Error("failed to apply replication data", zap.Error(err))
+	}
+
+	s.lastSegmentName = response.SegmentName
+}
+
+func (s *Slave) saveWALSegment(segmentName string, segmentData []byte) error {
+	flags := os.O_CREATE | os.O_WRONLY
+	filename := fmt.Sprintf("%s/%s", s.walDirectory, segmentName)
+	segment, err := os.OpenFile(filename, flags, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to create wal segment: %w", err)
+	}
+
+	if _, err = segment.Write(segmentData); err != nil {
+		return fmt.Errorf("failed to write data to segment: %w", err)
+	}
+
+	return segment.Sync()
+}
+
+func (s *Slave) applyDataToEngine(segmentData []byte) error {
+	var logs []wal.LogData
+	buffer := bytes.NewBuffer(segmentData)
+	decoder := gob.NewDecoder(buffer)
+	if err := decoder.Decode(&logs); err != nil {
+		return fmt.Errorf("failed to decode data: %w", err)
+	}
+
+	s.stream <- logs
+	return nil
 }

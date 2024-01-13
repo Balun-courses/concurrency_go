@@ -48,7 +48,7 @@ func NewStorage(
 		engine: engine,
 		wal:    wal,
 		logger: logger,
-		//stream: replicationStream,
+		stream: replicationStream,
 	}
 
 	if wal != nil {
@@ -58,7 +58,13 @@ func NewStorage(
 		}
 
 		storage.applyLogs(logs)
-		wal.Start()
+		if replicationStream != nil {
+			go func() {
+				storage.synchronizeReplica()
+			}()
+		} else {
+			wal.Start()
+		}
 	}
 
 	return storage, nil

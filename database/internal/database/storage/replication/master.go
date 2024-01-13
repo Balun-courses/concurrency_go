@@ -3,6 +3,7 @@ package replication
 import (
 	"context"
 	"errors"
+	"fmt"
 	"go.uber.org/zap"
 	"os"
 	"spider/internal/database/storage/wal"
@@ -54,42 +55,26 @@ func (m *Master) HandleSynchronizations(ctx context.Context) error {
 
 func (m *Master) synchronize(request Request) Response {
 	var response Response
-	filename, err := wal.SegmentUpperBound(m.walDirectory, request.LastSegmentTimestamp)
+	segmentName, err := wal.SegmentUpperBound(m.walDirectory, request.LastSegmentName)
 	if err != nil {
-		// TODO
+		m.logger.Error("failed to find WAL segment", zap.Error(err))
 		return response
 	}
 
-	if filename == "" {
-		// TODO
+	if segmentName == "" {
+		response.Succeed = true
 		return response
 	}
 
+	filename := fmt.Sprintf("%s/%s", m.walDirectory, segmentName)
 	data, err := os.ReadFile(filename)
 	if err != nil {
-		// TODO
+		m.logger.Error("failed to read WAL segment", zap.Error(err))
 		return response
 	}
 
 	response.Succeed = true
 	response.SegmentData = data
-	response.SegmentTimestamp = m.extractTimestampFromSegmentFilename(filename)
+	response.SegmentName = filename
 	return response
-}
-
-func (m *Master) extractTimestampFromSegmentFilename(filename string) int64 {
-	idx := 0
-	for idx < len(filename) && filename[idx] != '_' {
-		idx++
-	}
-
-	idx++
-	var timestamp int64
-	for idx < len(filename) && filename[idx] != '.' {
-		number := filename[idx] - '0'
-		timestamp = timestamp*10 + int64(number)
-		idx++
-	}
-
-	return timestamp
 }

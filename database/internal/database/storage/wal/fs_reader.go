@@ -33,7 +33,7 @@ func (r *FSReader) ReadLogs() ([]LogData, error) {
 			continue
 		}
 
-		filename := r.directory + "/" + file.Name()
+		filename := fmt.Sprintf("%s/%s", r.directory, file.Name())
 		segmentedLogs, err := r.readSegment(filename)
 		if err != nil {
 			return nil, fmt.Errorf("failed to recove WAL segment: %w", err)

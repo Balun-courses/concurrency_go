@@ -9,8 +9,8 @@ import (
 func TestRequest(t *testing.T) {
 	t.Parallel()
 
-	var lastSegmentTimestamp int64 = 10
-	initialRequest := NewRequest(lastSegmentTimestamp)
+	lastSegmentName := "wal_1000.log"
+	initialRequest := NewRequest(lastSegmentName)
 	data, err := Encode(&initialRequest)
 	require.NoError(t, err)
 	require.NotNil(t, data)
@@ -26,9 +26,9 @@ func TestResponse(t *testing.T) {
 	t.Parallel()
 
 	succeed := true
-	var segmentTimestamp int64 = 10
+	segmentName := "wal_1000.log"
 	segmentData := []byte{'s', 'y', 'n', 'c'}
-	initialResponse := NewResponse(succeed, segmentTimestamp, segmentData)
+	initialResponse := NewResponse(succeed, segmentName, segmentData)
 	data, err := Encode(&initialResponse)
 	require.NoError(t, err)
 	require.NotNil(t, data)
