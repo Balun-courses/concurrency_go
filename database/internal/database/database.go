@@ -13,9 +13,11 @@ type computeLayer interface {
 }
 
 type storageLayer interface {
-	Set(ctx context.Context, key, value string) error
-	Get(ctx context.Context, key string) (string, error)
-	Del(ctx context.Context, key string) error
+	Start(context.Context)
+	Set(context.Context, string, string) error
+	Get(context.Context, string) (string, error)
+	Del(context.Context, string) error
+	Shutdown()
 }
 
 type Database struct {
@@ -44,6 +46,14 @@ func NewDatabase(computeLayer computeLayer, storageLayer storageLayer, logger *z
 		idGenerator:  NewIDGenerator(),
 		logger:       logger,
 	}, nil
+}
+
+func (d *Database) Start(ctx context.Context) {
+	d.Start(ctx)
+}
+
+func (d *Database) Shutdown() {
+	d.storageLayer.Shutdown()
 }
 
 func (d *Database) HandleQuery(ctx context.Context, queryStr string) string {

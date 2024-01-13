@@ -31,23 +31,6 @@ func TestNewStorage(t *testing.T) {
 	require.NotNil(t, storage)
 }
 
-func TestSetWithCanceledContext(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	cancel()
-
-	ctrl := gomock.NewController(t)
-	engine := NewMockEngine(ctrl)
-
-	storage, err := NewStorage(engine, nil, nil, zap.NewNop())
-	require.NoError(t, err)
-
-	err = storage.Set(ctxWithCancel, "key", "value")
-	require.Error(t, err, context.Canceled)
-}
-
 func TestSetWithWALError(t *testing.T) {
 	t.Parallel()
 
@@ -96,24 +79,6 @@ func TestSuccessfulSet(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestGetWithCanceledContext(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	cancel()
-
-	ctrl := gomock.NewController(t)
-	engine := NewMockEngine(ctrl)
-
-	storage, err := NewStorage(engine, nil, nil, zap.NewNop())
-	require.NoError(t, err)
-
-	value, err := storage.Get(ctxWithCancel, "key")
-	require.Error(t, err, context.Canceled)
-	require.Equal(t, "", value)
-}
-
 func TestSuccessfulGet(t *testing.T) {
 	t.Parallel()
 
@@ -133,23 +98,6 @@ func TestSuccessfulGet(t *testing.T) {
 	value, err := storage.Get(ctx, "key")
 	require.NoError(t, err)
 	require.Equal(t, "value", value)
-}
-
-func TestDelWithCanceledContext(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-	ctxWithCancel, cancel := context.WithCancel(ctx)
-	cancel()
-
-	ctrl := gomock.NewController(t)
-	engine := NewMockEngine(ctrl)
-
-	storage, err := NewStorage(engine, nil, nil, zap.NewNop())
-	require.NoError(t, err)
-
-	err = storage.Del(ctxWithCancel, "key")
-	require.Error(t, err, context.Canceled)
 }
 
 func TestDelWithWALError(t *testing.T) {

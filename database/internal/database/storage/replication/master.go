@@ -10,7 +10,8 @@ import (
 )
 
 type TCPServer interface {
-	HandleQueries(ctx context.Context, handler func(context.Context, []byte) []byte) error
+	Start(context.Context, func(context.Context, []byte) []byte)
+	Shutdown()
 }
 
 type Master struct {
@@ -35,8 +36,12 @@ func NewMaster(server TCPServer, walDirectory string, logger *zap.Logger) (*Mast
 	}, nil
 }
 
-func (m *Master) HandleSynchronizations(ctx context.Context) error {
-	return m.server.HandleQueries(ctx, func(_ context.Context, requestData []byte) []byte {
+func (m *Master) Start(ctx context.Context) {
+	m.server.Start(ctx, func(ctx context.Context, requestData []byte) []byte {
+		if ctx.Err() != nil {
+			return nil
+		}
+
 		var request Request
 		if err := Decode(&request, requestData); err != nil {
 			m.logger.Error("failed to decode replication request", zap.Error(err))
@@ -51,6 +56,14 @@ func (m *Master) HandleSynchronizations(ctx context.Context) error {
 
 		return responseData
 	})
+}
+
+func (m *Master) Shutdown() {
+	m.server.Shutdown()
+}
+
+func (m *Master) IsMaster() bool {
+	return true
 }
 
 func (m *Master) synchronize(request Request) Response {

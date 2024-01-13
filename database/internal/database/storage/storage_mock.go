@@ -7,7 +7,6 @@ package storage
 import (
 	context "context"
 	reflect "reflect"
-	wal "spider/internal/database/storage/wal"
 	tools "spider/internal/tools"
 
 	gomock "github.com/golang/mock/gomock"
@@ -112,21 +111,6 @@ func (mr *MockWALMockRecorder) Del(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockWAL)(nil).Del), arg0, arg1)
 }
 
-// Recover mocks base method.
-func (m *MockWAL) Recover() ([]wal.LogData, error) {
-	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Recover")
-	ret0, _ := ret[0].([]wal.LogData)
-	ret1, _ := ret[1].(error)
-	return ret0, ret1
-}
-
-// Recover indicates an expected call of Recover.
-func (mr *MockWALMockRecorder) Recover() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recover", reflect.TypeOf((*MockWAL)(nil).Recover))
-}
-
 // Set mocks base method.
 func (m *MockWAL) Set(arg0 context.Context, arg1, arg2 string) tools.FutureError {
 	m.ctrl.T.Helper()
@@ -163,4 +147,65 @@ func (m *MockWAL) Start() {
 func (mr *MockWALMockRecorder) Start() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockWAL)(nil).Start))
+}
+
+// MockReplica is a mock of Replica interface.
+type MockReplica struct {
+	ctrl     *gomock.Controller
+	recorder *MockReplicaMockRecorder
+}
+
+// MockReplicaMockRecorder is the mock recorder for MockReplica.
+type MockReplicaMockRecorder struct {
+	mock *MockReplica
+}
+
+// NewMockReplica creates a new mock instance.
+func NewMockReplica(ctrl *gomock.Controller) *MockReplica {
+	mock := &MockReplica{ctrl: ctrl}
+	mock.recorder = &MockReplicaMockRecorder{mock}
+	return mock
+}
+
+// EXPECT returns an object that allows the caller to indicate expected use.
+func (m *MockReplica) EXPECT() *MockReplicaMockRecorder {
+	return m.recorder
+}
+
+// IsMaster mocks base method.
+func (m *MockReplica) IsMaster() bool {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "IsMaster")
+	ret0, _ := ret[0].(bool)
+	return ret0
+}
+
+// IsMaster indicates an expected call of IsMaster.
+func (mr *MockReplicaMockRecorder) IsMaster() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMaster", reflect.TypeOf((*MockReplica)(nil).IsMaster))
+}
+
+// Shutdown mocks base method.
+func (m *MockReplica) Shutdown() {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Shutdown")
+}
+
+// Shutdown indicates an expected call of Shutdown.
+func (mr *MockReplicaMockRecorder) Shutdown() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockReplica)(nil).Shutdown))
+}
+
+// Start mocks base method.
+func (m *MockReplica) Start(arg0 context.Context) {
+	m.ctrl.T.Helper()
+	m.ctrl.Call(m, "Start", arg0)
+}
+
+// Start indicates an expected call of Start.
+func (mr *MockReplicaMockRecorder) Start(arg0 interface{}) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockReplica)(nil).Start), arg0)
 }

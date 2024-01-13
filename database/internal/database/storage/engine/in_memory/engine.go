@@ -5,6 +5,8 @@ import (
 	"errors"
 	"go.uber.org/zap"
 	"hash/fnv"
+	"spider/internal/database/compute"
+	"spider/internal/database/storage/wal"
 )
 
 type hashTable interface {
@@ -18,9 +20,18 @@ type Engine struct {
 	logger     *zap.Logger
 }
 
-func NewEngine(tableBuilder func() hashTable, partitionsNumber int, logger *zap.Logger) (*Engine, error) {
+func NewEngine(
+	tableBuilder func() hashTable,
+	stream <-chan []wal.LogData,
+	partitionsNumber int,
+	logger *zap.Logger,
+) (*Engine, error) {
 	if tableBuilder == nil {
 		return nil, errors.New("hash table builder is invalid")
+	}
+
+	if stream == nil {
+		return nil, errors.New("stream is invalid")
 	}
 
 	if partitionsNumber <= 0 {
@@ -40,10 +51,18 @@ func NewEngine(tableBuilder func() hashTable, partitionsNumber int, logger *zap.
 		}
 	}
 
-	return &Engine{
+	engine := &Engine{
 		partitions: partitions,
 		logger:     logger,
-	}, nil
+	}
+
+	go func() {
+		for logs := range stream {
+			engine.applyLogs(logs)
+		}
+	}()
+
+	return engine, nil
 }
 
 func (e *Engine) Set(ctx context.Context, key, value string) {
@@ -78,4 +97,15 @@ func (e *Engine) partitionIdx(key string) int {
 	hash := fnv.New32a()
 	_, _ = hash.Write([]byte(key))
 	return int(hash.Sum32()) % len(e.partitions)
+}
+
+func (e *Engine) applyLogs(logs []wal.LogData) {
+	for _, log := range logs {
+		switch log.CommandID {
+		case compute.SetCommandID:
+			e.Set(context.Background(), log.Arguments[0], log.Arguments[1])
+		case compute.DelCommandID:
+			e.Del(context.Background(), log.Arguments[0])
+		}
+	}
 }

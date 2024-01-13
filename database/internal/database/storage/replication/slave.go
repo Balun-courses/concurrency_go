@@ -17,15 +17,25 @@ type TCPClient interface {
 }
 
 type Slave struct {
-	logger          *zap.Logger
 	client          TCPClient
-	stream          chan []wal.LogData
+	stream          chan<- []wal.LogData
 	syncInterval    time.Duration
 	walDirectory    string
 	lastSegmentName string
+
+	closeCh     chan struct{}
+	closeDoneCh chan struct{}
+
+	logger *zap.Logger
 }
 
-func NewSlave(client TCPClient, walDirectory string, syncInterval time.Duration, logger *zap.Logger) (*Slave, error) {
+func NewSlave(
+	client TCPClient,
+	stream chan<- []wal.LogData,
+	walDirectory string,
+	syncInterval time.Duration,
+	logger *zap.Logger,
+) (*Slave, error) {
 	if client == nil {
 		return nil, errors.New("client is invalid")
 	}
@@ -41,35 +51,44 @@ func NewSlave(client TCPClient, walDirectory string, syncInterval time.Duration,
 
 	return &Slave{
 		client:          client,
-		logger:          logger,
-		stream:          make(chan []wal.LogData, 1),
+		stream:          stream,
 		syncInterval:    syncInterval,
 		walDirectory:    walDirectory,
 		lastSegmentName: segmentName,
+		closeCh:         make(chan struct{}),
+		closeDoneCh:     make(chan struct{}),
+		logger:          logger,
 	}, nil
 }
 
-func (s *Slave) ReplicationStream() <-chan []wal.LogData {
-	return s.stream
+func (s *Slave) Start(_ context.Context) {
+	go func() {
+		defer close(s.closeDoneCh)
+
+		for {
+			select {
+			case <-s.closeCh:
+				return
+			default:
+			}
+
+			select {
+			case <-s.closeCh:
+				return
+			case <-time.After(s.syncInterval):
+				s.synchronize()
+			}
+		}
+	}()
 }
 
-func (s *Slave) StartSynchronization(ctx context.Context) {
-	defer close(s.stream)
+func (s *Slave) Shutdown() {
+	close(s.closeCh)
+	<-s.closeDoneCh
+}
 
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		default:
-		}
-
-		select {
-		case <-ctx.Done():
-			return
-		case <-time.After(s.syncInterval):
-			s.synchronize()
-		}
-	}
+func (s *Slave) IsMaster() bool {
+	return false
 }
 
 func (s *Slave) synchronize() {

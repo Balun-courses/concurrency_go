@@ -2,6 +2,7 @@ package wal
 
 import (
 	"context"
+	"go.uber.org/zap"
 	"spider/internal/database/compute"
 	"spider/internal/tools"
 	"sync"
@@ -28,15 +29,19 @@ type WAL struct {
 
 	closeCh     chan struct{}
 	closeDoneCh chan struct{}
+
+	logger *zap.Logger
 }
 
 func NewWAL(
 	fsWriter fsWriter,
 	fsReader fsReader,
+	stream chan<- []LogData,
 	flushTimeout time.Duration,
 	maxBatchSize int,
+	logger *zap.Logger,
 ) *WAL {
-	return &WAL{
+	wal := &WAL{
 		fsWriter:     fsWriter,
 		fsReader:     fsReader,
 		flushTimeout: flushTimeout,
@@ -44,18 +49,16 @@ func NewWAL(
 		batches:      make(chan []Log, 1),
 		closeCh:      make(chan struct{}),
 		closeDoneCh:  make(chan struct{}),
+		logger:       logger,
 	}
-}
 
-func (w *WAL) Recover() ([]LogData, error) {
-	return w.fsReader.ReadLogs()
+	wal.tryRecoverWALSegments(stream)
+	return wal
 }
 
 func (w *WAL) Start() {
 	go func() {
-		defer func() {
-			w.closeDoneCh <- struct{}{}
-		}()
+		defer close(w.closeDoneCh)
 
 		for {
 			select {
@@ -111,4 +114,13 @@ func (w *WAL) push(ctx context.Context, commandID int, args []string) tools.Futu
 	})
 
 	return record.Result()
+}
+
+func (w *WAL) tryRecoverWALSegments(stream chan<- []LogData) {
+	logs, err := w.fsReader.ReadLogs()
+	if err != nil {
+		w.logger.Error("failed to recover WAL segments", zap.Error(err))
+	} else {
+		stream <- logs
+	}
 }

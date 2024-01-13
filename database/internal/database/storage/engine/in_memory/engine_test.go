@@ -5,6 +5,7 @@ import (
 	"github.com/golang/mock/gomock"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+	"spider/internal/database/storage/wal"
 	"testing"
 )
 
@@ -18,21 +19,27 @@ func TestNewEngine(t *testing.T) {
 		return NewMockhashTable(ctrl)
 	}
 
-	engine, err := NewEngine(nil, -1, nil)
+	engine, err := NewEngine(nil, nil, -1, nil)
 	require.Error(t, err, "hash table builder is invalid")
 	require.Nil(t, engine)
 
-	engine, err = NewEngine(tableBuilder, -1, nil)
+	engine, err = NewEngine(tableBuilder, nil, -1, nil)
+	require.Error(t, err, "stream is invalid")
+	require.Nil(t, engine)
+
+	engine, err = NewEngine(tableBuilder, make(chan []wal.LogData), -1, nil)
 	require.Error(t, err, "partitions number is invalid")
 	require.Nil(t, engine)
 
-	engine, err = NewEngine(tableBuilder, 1, nil)
+	engine, err = NewEngine(tableBuilder, make(chan []wal.LogData), 1, nil)
 	require.Error(t, err, "logger is invalid")
 	require.Nil(t, engine)
 
-	engine, err = NewEngine(tableBuilder, 10, zap.NewNop())
+	stream := make(chan []wal.LogData)
+	engine, err = NewEngine(tableBuilder, stream, 10, zap.NewNop())
 	require.NoError(t, err)
 	require.NotNil(t, engine)
+	close(stream)
 }
 
 func TestSetQuery(t *testing.T) {
@@ -47,10 +54,12 @@ func TestSetQuery(t *testing.T) {
 		return table
 	}
 
-	engine, err := NewEngine(tableBuilder, 1, zap.NewNop())
+	stream := make(chan []wal.LogData)
+	engine, err := NewEngine(tableBuilder, stream, 1, zap.NewNop())
 	require.NoError(t, err)
 
 	engine.Set(ctx, "key_1", "value_1")
+	close(stream)
 }
 
 func TestGetQuery(t *testing.T) {
@@ -66,7 +75,8 @@ func TestGetQuery(t *testing.T) {
 		return table
 	}
 
-	engine, err := NewEngine(tableBuilder, 1, zap.NewNop())
+	stream := make(chan []wal.LogData)
+	engine, err := NewEngine(tableBuilder, stream, 1, zap.NewNop())
 	require.NoError(t, err)
 
 	value, found := engine.Get(ctx, "key_1")
@@ -76,6 +86,7 @@ func TestGetQuery(t *testing.T) {
 	value, found = engine.Get(ctx, "key_2")
 	require.Equal(t, "", value)
 	require.False(t, found)
+	close(stream)
 }
 
 func TestDelQuery(t *testing.T) {
@@ -90,8 +101,10 @@ func TestDelQuery(t *testing.T) {
 		return table
 	}
 
-	engine, err := NewEngine(tableBuilder, 1, zap.NewNop())
+	stream := make(chan []wal.LogData)
+	engine, err := NewEngine(tableBuilder, stream, 1, zap.NewNop())
 	require.NoError(t, err)
 
 	engine.Del(ctx, "key_1")
+	close(stream)
 }
