@@ -9,6 +9,8 @@ type WorkerPool struct {
 	tasksCh     chan func()
 	closeCh     chan struct{}
 	closeDoneCh chan struct{}
+
+	mutex sync.RWMutex
 }
 
 func NewWorkerPool(workersNumber int) *WorkerPool {
@@ -27,13 +29,14 @@ func (wp *WorkerPool) AddTask(task func()) error {
 		return errors.New("invalid task")
 	}
 
+	wp.mutex.RLock()
+	defer wp.mutex.RUnlock()
+
 	select {
 	case <-wp.closeCh:
 		return errors.New("tasks queue was closed")
 	default:
 	}
-
-	// TODO
 
 	select {
 	case wp.tasksCh <- task:
@@ -45,6 +48,11 @@ func (wp *WorkerPool) AddTask(task func()) error {
 
 func (wp *WorkerPool) Shutdown() {
 	close(wp.closeCh)
+
+	wp.mutex.Lock()
+	close(wp.tasksCh)
+	wp.mutex.Unlock()
+
 	<-wp.closeDoneCh
 }
 
@@ -55,14 +63,8 @@ func (wp *WorkerPool) initializeWorkers(workersNumber int) {
 	for i := 0; i < workersNumber; i++ {
 		go func() {
 			defer wg.Done()
-
-			for {
-				select {
-				case <-wp.closeCh:
-					return
-				case task := <-wp.tasksCh:
-					task()
-				}
+			for task := range wp.tasksCh {
+				task()
 			}
 		}()
 	}

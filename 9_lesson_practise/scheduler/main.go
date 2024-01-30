@@ -10,7 +10,7 @@ type Scheduler struct {
 	mutex sync.Mutex
 }
 
-func (s *Scheduler) Delay(key int, function func(), delay time.Duration) {
+func (s *Scheduler) SetTimeout(key int, action func(), delay time.Duration) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -18,17 +18,28 @@ func (s *Scheduler) Delay(key int, function func(), delay time.Duration) {
 		task.Stop()
 	}
 
-	if function == nil {
+	if action == nil {
 		delete(s.tasks, key)
 	}
 
 	s.tasks[key] = time.AfterFunc(delay, func() {
-		function()
+		action()
 
 		s.mutex.Lock()
 		delete(s.tasks, key)
 		s.mutex.Unlock()
 	})
+}
+
+func (s *Scheduler) CancelTimeout(key int) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if task, found := s.tasks[key]; found {
+		task.Stop()
+	}
+
+	delete(s.tasks, key)
 }
 
 func (s *Scheduler) Shutdown() {

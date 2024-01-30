@@ -6,59 +6,82 @@ import (
 )
 
 type Batcher struct {
-	f    func([]string)
-	m    sync.Mutex
-	msgs []string
+	size     int
+	action   func([]string)
+	mutex    sync.Mutex
+	messages []string
 
+	batchesCh   chan []string
 	closeCh     chan struct{}
 	closeDoneCh chan struct{}
 }
 
-func NewBatcher(f func([]string)) *Batcher {
-	b := &Batcher{
-		f:           f,
+func NewBatcher(action func([]string), size int) *Batcher {
+	return &Batcher{
+		size:        size,
+		action:      action,
+		batchesCh:   make(chan []string, 1),
 		closeCh:     make(chan struct{}),
 		closeDoneCh: make(chan struct{}),
 	}
-
-	go b.run()
-	return b
 }
 
-func (b *Batcher) Append(s string) {
-	b.m.Lock()
-	defer b.m.Unlock()
-	b.msgs = append(b.msgs, s)
+func (b *Batcher) Append(message string) {
+	select {
+	case <-b.closeCh:
+		return
+	default:
+	}
+
+	b.mutex.Lock()
+	defer b.mutex.Unlock()
+
+	b.messages = append(b.messages, message)
+	if len(b.messages) == b.size {
+		b.batchesCh <- b.messages
+		b.messages = nil
+	}
 }
 
-func (b *Batcher) run() {
+func (b *Batcher) Run(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer func() {
+		ticker.Stop()
+		close(b.closeDoneCh)
+	}()
+
 	for {
 		select {
 		case <-b.closeCh:
-			b.closeDoneCh <- struct{}{}
+			b.flush()
+		default:
+		}
+
+		select {
+		case <-b.closeCh:
+			b.flush()
 			return
-		case <-time.After(time.Second):
-			b.call()
+		case messages := <-b.batchesCh:
+			b.action(messages)
+			ticker.Reset(interval)
+		case <-ticker.C:
+			b.flush()
 		}
 	}
 }
 
-func (b *Batcher) call() {
-	b.m.Lock()
-	msgs := b.msgs
-	b.msgs = nil
-	b.m.Unlock()
+func (b *Batcher) flush() {
+	b.mutex.Lock()
+	messages := b.messages
+	b.messages = nil
+	b.mutex.Unlock()
 
-	if len(msgs) > 0 {
-		b.f(msgs)
+	if len(messages) > 0 {
+		b.action(messages)
 	}
 }
 
-func (b *Batcher) Cancel() {
-	select {
-	case b.closeCh <- struct{}{}:
-		<-b.closeDoneCh
-		b.call()
-	default:
-	}
+func (b *Batcher) Shutdown() {
+	close(b.closeCh)
+	<-b.closeDoneCh
 }
