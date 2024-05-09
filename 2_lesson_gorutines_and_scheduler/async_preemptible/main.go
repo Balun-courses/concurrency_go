@@ -6,14 +6,13 @@ import (
 )
 
 func infiniteLoop(str string) {
-	fmt.Println("infinite loop")
 	for {
-		fmt.Println("test")
+		fmt.Println(str)
 	}
 }
 
 func loop(str string) {
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 1; i++ {
 		runtime.Gosched()
 		fmt.Println(str)
 	}

@@ -29,5 +29,5 @@ func asyncPrint() {
 }
 
 func main() {
-	asyncPrint()
+	syncPrint()
 }
