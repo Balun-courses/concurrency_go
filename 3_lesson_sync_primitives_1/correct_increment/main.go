@@ -6,6 +6,7 @@ import (
 )
 
 func main() {
+	mutex := sync.Mutex{}
 	wg := sync.WaitGroup{}
 	wg.Add(1000)
 
@@ -13,7 +14,10 @@ func main() {
 	for i := 0; i < 1000; i++ {
 		go func() {
 			defer wg.Done()
+
+			mutex.Lock()
 			value++
+			mutex.Unlock()
 		}()
 	}
 

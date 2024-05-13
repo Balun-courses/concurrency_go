@@ -32,5 +32,4 @@ func unlockFromAnotherGoroutine() {
 }
 
 func main() {
-	unlockFromAnotherGoroutine()
 }

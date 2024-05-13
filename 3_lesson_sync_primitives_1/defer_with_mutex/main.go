@@ -6,24 +6,16 @@ import "sync"
 
 var mutex sync.Mutex
 
-func operation() error {
-	return nil // or error
-}
+func operation() {}
 
 func doSomething() {
 	mutex.Lock()
+	operation()
+	mutex.Unlock()
 
-	err := operation()
-	if err != nil {
-		mutex.Unlock()
-		return
-	}
+	// some long operation
 
-	err = operation()
-	if err != nil {
-		mutex.Unlock()
-		return
-	}
-
+	mutex.Lock()
+	operation()
 	mutex.Unlock()
 }
