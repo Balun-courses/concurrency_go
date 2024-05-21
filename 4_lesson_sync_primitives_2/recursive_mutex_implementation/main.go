@@ -6,6 +6,7 @@ import (
 	"runtime"
 	"strconv"
 	"sync"
+	"sync/atomic"
 )
 
 // This is terrible, slow, and should never be used.
@@ -29,11 +30,9 @@ func goid() (int, error) {
 }
 
 type RecursiveMutex struct {
-	mutex    sync.Mutex
-	notifier sync.Cond
-	count    int
-	owner    int
-	locked   bool
+	mutex sync.Mutex
+	count atomic.Int32
+	owner atomic.Int32
 }
 
 func NewRecursiveMutex() *RecursiveMutex {
@@ -46,33 +45,24 @@ func (m *RecursiveMutex) Lock() {
 		panic("recursive_mutex: " + err.Error())
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	for m.locked && id != m.owner {
-		m.notifier.Wait()
+	if m.owner.Load() == int32(id) {
+		m.count.Add(1)
+	} else {
+		m.mutex.Lock()
+		m.owner.Store(int32(id))
+		m.count.Store(1)
 	}
-
-	m.count++
-	m.locked = true
 }
 
 func (m *RecursiveMutex) Unlock() {
 	id, err := goid()
-	if err != nil {
+	if err != nil || m.owner.Load() != int32(id) {
 		panic("recursive_mutex: " + err.Error())
 	}
 
-	m.mutex.Lock()
-	defer m.mutex.Unlock()
-
-	if !m.locked || id != m.owner {
-		panic("incorrect usage")
-	}
-
-	m.count--
-	if m.count == 0 {
-		m.locked = false
-		m.notifier.Broadcast()
+	m.count.Add(-1)
+	if m.count.Load() == 0 {
+		m.owner.Store(0)
+		m.mutex.Unlock()
 	}
 }

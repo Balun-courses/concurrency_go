@@ -2,16 +2,14 @@ package main
 
 import "sync"
 
-// Need to show solution
-
 type Counters struct {
-	mu sync.Mutex
+	mu sync.RWMutex
 	m  map[string]int
 }
 
 func (c *Counters) Load(key string) (int, bool) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 
 	value, found := c.m[key]
 	return value, found

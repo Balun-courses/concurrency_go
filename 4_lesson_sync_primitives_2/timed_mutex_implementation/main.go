@@ -22,7 +22,8 @@ func (m *TimedMutex) TryLock() bool {
 }
 
 func (m *TimedMutex) TryLockFor(duration time.Duration) bool {
-	period := duration / 10
+	const periodsNumber = 10
+	period := duration / periodsNumber
 	for duration > 0 {
 		if m.TryLock() {
 			return true

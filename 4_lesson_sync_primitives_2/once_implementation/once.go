@@ -10,11 +10,15 @@ type Once struct {
 	state uintptr
 }
 
-func NewOnce() Once {
-	return Once{}
+func NewOnce() *Once {
+	return &Once{}
 }
 
 func (o *Once) Do(action func()) {
+	if action == nil {
+		return
+	}
+
 	if atomic.LoadUintptr(&o.state) == 0 {
 		o.doOnce(action)
 	}

@@ -2,11 +2,10 @@ package main
 
 import (
 	"sync"
-	"sync/atomic"
 	"testing"
 )
 
-// go test -bench=. bench_test.go
+// go test -bench=. perf_test.go
 
 func BenchmarkMutexAdd(b *testing.B) {
 	var number int32
@@ -18,16 +17,12 @@ func BenchmarkMutexAdd(b *testing.B) {
 	}
 }
 
-func BenchmarkAtomicAdd(b *testing.B) {
-	var number atomic.Int32
-	for i := 0; i < b.N; i++ {
-		number.Add(1)
-	}
-}
-
-func BenchmarkAdd(b *testing.B) {
+func BenchmarkRWMutexAdd(b *testing.B) {
 	var number int32
+	var mutex sync.RWMutex
 	for i := 0; i < b.N; i++ {
+		mutex.Lock()
 		number++
+		mutex.Unlock()
 	}
 }
