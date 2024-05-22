@@ -6,20 +6,14 @@ import (
 )
 
 func main() {
-	doWork := func(strings <-chan string) <-chan struct{} {
-		completed := make(chan struct{})
+	doWork := func(strings <-chan string) {
 		go func() {
-			defer func() {
-				fmt.Println("doWork exited")
-				close(completed)
-			}()
-
 			for str := range strings {
 				fmt.Println(str)
 			}
-		}()
 
-		return completed
+			fmt.Println("doWork exited")
+		}()
 	}
 
 	strings := make(chan string)

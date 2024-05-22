@@ -1,8 +1,7 @@
 package main
 
-// Need to show solution
-
 func main() {
-	ch := make(chan int)
+	ch := make(chan int, 2)
+	ch <- 100
 	ch <- 100
 }

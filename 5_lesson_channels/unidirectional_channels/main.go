@@ -1,10 +1,18 @@
 package main
 
-func f(out chan<- int) {
-	out <- 100
+import "fmt"
+
+func in(in chan<- int) {
+	in <- 100
+	close(in)
+}
+
+func out(out <-chan int) {
+	fmt.Println(<-out)
 }
 
 func main() {
-	var ch = make(chan int)
-	f(ch)
+	var ch = make(chan int, 1)
+	in(ch)
+	out(ch)
 }

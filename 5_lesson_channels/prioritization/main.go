@@ -23,12 +23,6 @@ func main() {
 		select {
 		case value := <-ch1:
 			fmt.Println(value)
-		default:
-		}
-
-		select {
-		case value := <-ch1:
-			fmt.Println(value)
 		case value := <-ch2:
 			fmt.Println(value)
 		}

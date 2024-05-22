@@ -1,6 +1,9 @@
 package main
 
-import "sync"
+import (
+	"fmt"
+	"sync"
+)
 
 func notifier(signals chan<- struct{}) {
 	signals <- struct{}{}
@@ -8,12 +11,13 @@ func notifier(signals chan<- struct{}) {
 
 func subscriber(signals <-chan struct{}) {
 	<-signals
+	fmt.Println("signaled")
 }
 
 func main() {
 	signals := make(chan struct{})
 	wg := sync.WaitGroup{}
-	wg.Add(3)
+	wg.Add(2)
 
 	go func() {
 		defer wg.Done()
