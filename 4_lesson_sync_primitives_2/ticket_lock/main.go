@@ -7,8 +7,8 @@ type TicketLock struct {
 	nextFreeTicket atomic.Int64
 }
 
-func NewTicketLock() TicketLock {
-	return TicketLock{}
+func NewTicketLock() *TicketLock {
+	return &TicketLock{}
 }
 
 func (t *TicketLock) Lock() {
