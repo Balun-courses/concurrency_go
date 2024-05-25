@@ -25,10 +25,11 @@ func or(channels ...<-chan struct{}) <-chan struct{} {
 			}
 		default:
 			select {
+			case <-orDone:
 			case <-channels[0]:
 			case <-channels[1]:
 			case <-channels[2]:
-			case <-or(append(channels[3:], orDone)...):
+			case <-or(append(channels[3:])...):
 			}
 		}
 	}()
@@ -47,6 +48,7 @@ func main() {
 	}
 
 	start := time.Now()
+
 	<-or(
 		after(2*time.Hour),
 		after(5*time.Minute),

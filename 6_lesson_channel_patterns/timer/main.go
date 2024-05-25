@@ -5,22 +5,21 @@ import (
 	"time"
 )
 
-func producer(ch chan<- int) {
+func producer(ch chan<- struct{}) {
 	time.Sleep(5 * time.Second)
-	ch <- 1
+	ch <- struct{}{}
 }
 
 func main() {
-	ch := make(chan int)
+	ch := make(chan struct{})
 	go producer(ch)
 
 	timer := time.NewTimer(time.Second)
-	defer timer.Stop() // important
+	defer timer.Stop()
 
 	for {
 		select {
-		case value := <-ch:
-			fmt.Println(value)
+		case <-ch:
 			return
 		case <-timer.C:
 			fmt.Println("tick")

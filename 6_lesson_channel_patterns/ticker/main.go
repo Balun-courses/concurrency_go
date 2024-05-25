@@ -5,22 +5,21 @@ import (
 	"time"
 )
 
-func producer(ch chan<- int) {
+func producer(ch chan<- struct{}) {
 	time.Sleep(5 * time.Second)
-	ch <- 1
+	ch <- struct{}{}
 }
 
 func main() {
-	ch := make(chan int)
+	ch := make(chan struct{})
 	go producer(ch)
 
 	ticker := time.NewTicker(time.Second)
-	defer ticker.Stop() // important
+	defer ticker.Stop()
 
 	for {
 		select {
-		case value := <-ch:
-			fmt.Println(value)
+		case <-ch:
 			return
 		case <-ticker.C:
 			fmt.Println("tick")

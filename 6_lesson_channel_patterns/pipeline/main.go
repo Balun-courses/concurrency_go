@@ -27,10 +27,7 @@ func mul(in <-chan int) <-chan int {
 }
 
 func main() {
-	in := gen(1, 2, 3, 4, 5)
-	out := mul(mul(in))
-
-	for value := range out {
+	for value := range mul(gen(1, 2, 3, 4, 5)) {
 		fmt.Println(value)
 	}
 }

@@ -1,22 +1,16 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func Bridge(in chan chan string) chan string {
 	out := make(chan string)
 	go func() {
 		defer close(out)
-
-		for {
-			select {
-			case ch, ok := <-in:
-				if ok == false {
-					return
-				}
-
-				for value := range ch {
-					out <- value
-				}
+		for ch := range in {
+			for value := range ch {
+				out <- value
 			}
 		}
 	}()

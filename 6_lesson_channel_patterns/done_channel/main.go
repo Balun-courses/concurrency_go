@@ -1,6 +1,8 @@
 package main
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func doWork(closeCh chan struct{}) <-chan struct{} {
 	closeDoneCh := make(chan struct{})

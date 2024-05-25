@@ -15,16 +15,18 @@ func OrDone(done chan struct{}, in chan string) chan string {
 			select {
 			case <-done:
 				return
+			default:
+			}
+
+			select {
 			case value, ok := <-in:
 				if !ok {
 					return
 				}
 
-				select {
-				case out <- value:
-				case <-done:
-					return
-				}
+				out <- value
+			case <-done:
+				return
 			}
 		}
 	}()
@@ -36,7 +38,8 @@ func main() {
 	in := make(chan string)
 	go func() {
 		for i := 0; i < 5; i++ {
-			fmt.Println("test")
+			time.Sleep(500 * time.Millisecond)
+			in <- "test"
 		}
 	}()
 

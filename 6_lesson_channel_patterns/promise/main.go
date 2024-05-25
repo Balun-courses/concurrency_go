@@ -6,20 +6,23 @@ import (
 )
 
 type Promise struct {
-	closeCh     chan struct{}
+	waitCh      chan struct{}
 	closeDoneCh chan struct{}
 	value       interface{}
 	err         error
 }
 
 func NewPromise(task func() (interface{}, error)) *Promise {
+	if task == nil {
+		return nil
+	}
+
 	promise := &Promise{
-		closeCh:     make(chan struct{}),
-		closeDoneCh: make(chan struct{}),
+		waitCh: make(chan struct{}),
 	}
 
 	go func() {
-		defer close(promise.closeCh)
+		defer close(promise.waitCh)
 		promise.value, promise.err = task()
 	}()
 
@@ -27,34 +30,27 @@ func NewPromise(task func() (interface{}, error)) *Promise {
 }
 
 func (p *Promise) Then(successCb func(interface{}), errCb func(error)) {
-	go func() {
-		<-p.closeCh
-		defer close(p.closeDoneCh)
-
-		if p.err == nil {
-			successCb(p.value)
-		} else {
-			errCb(p.err)
-		}
-	}()
-
-	<-p.closeDoneCh
+	<-p.waitCh
+	if p.err == nil {
+		successCb(p.value)
+	} else {
+		errCb(p.err)
+	}
 }
 
 func main() {
 	callback := func() (interface{}, error) {
-		// some long operation
 		time.Sleep(time.Second)
-		return "success", nil
+		return "ok", nil
 	}
 
 	promise := NewPromise(callback)
 	promise.Then(
 		func(value interface{}) {
-			fmt.Println(value)
+			fmt.Println("success", value)
 		},
 		func(err error) {
-			fmt.Println(err.Error())
+			fmt.Println("error", err.Error())
 		},
 	)
 }

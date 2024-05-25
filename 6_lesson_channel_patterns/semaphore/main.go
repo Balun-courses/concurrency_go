@@ -48,7 +48,8 @@ func main() {
 			}()
 
 			fmt.Println("working...")
-			time.Sleep(time.Second * 5)
+			time.Sleep(time.Second * 2)
+			fmt.Println("exiting...")
 		}()
 	}
 

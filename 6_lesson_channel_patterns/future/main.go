@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"time"
 )
 
 type Future struct {
@@ -14,6 +15,7 @@ func NewFuture(task func() interface{}) *Future {
 	}
 
 	go func() {
+		defer close(future.result)
 		future.result <- task()
 	}()
 
@@ -26,7 +28,7 @@ func (f *Future) Get() interface{} {
 
 func main() {
 	callback := func() interface{} {
-		// some long operation
+		time.Sleep(time.Second)
 		return "success"
 	}
 

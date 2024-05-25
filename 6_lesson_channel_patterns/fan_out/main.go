@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -39,20 +40,22 @@ func main() {
 
 	channels := SplitChannel(ch, 2)
 
-	for {
-		select {
-		case value, ok := <-channels[0]:
-			if !ok {
-				return
-			}
+	wg := sync.WaitGroup{}
+	wg.Add(2)
 
-			fmt.Println(value)
-		case value, ok := <-channels[1]:
-			if !ok {
-				return
-			}
-
-			fmt.Println(value)
+	go func() {
+		defer wg.Done()
+		for value := range channels[0] {
+			fmt.Println("ch1: ", value)
 		}
-	}
+	}()
+
+	go func() {
+		defer wg.Done()
+		for value := range channels[1] {
+			fmt.Println("ch2: ", value)
+		}
+	}()
+
+	wg.Wait()
 }
