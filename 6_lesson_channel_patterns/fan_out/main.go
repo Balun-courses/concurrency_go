@@ -7,6 +7,10 @@ import (
 )
 
 func SplitChannel(inputCh <-chan int, n int) []chan int {
+	if n <= 0 {
+		n = 1
+	}
+
 	outputCh := make([]chan int, n)
 	for i := 0; i < n; i++ {
 		outputCh[i] = make(chan int)

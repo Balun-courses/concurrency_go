@@ -20,7 +20,8 @@ func NewTicker(interval time.Duration) *Ticker {
 
 	go func() {
 		for !ticker.closed.Load() {
-			time.Sleep(time.Duration(ticker.interval))
+			duration := atomic.LoadInt64(&ticker.interval)
+			time.Sleep(time.Duration(duration))
 			ticker.C <- struct{}{}
 		}
 	}()

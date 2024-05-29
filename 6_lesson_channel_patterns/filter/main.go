@@ -32,8 +32,7 @@ func main() {
 		}
 	}()
 
-	out := Filter(in)
-	for value := range out {
+	for value := range Filter(in) {
 		fmt.Println(value)
 	}
 }

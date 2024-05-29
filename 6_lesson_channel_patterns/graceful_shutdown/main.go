@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	interruptCh := make(chan os.Signal, 1)
+	interruptCh := make(chan os.Signal)
 	signal.Notify(interruptCh, syscall.SIGINT, syscall.SIGTERM)
 
 	wg := sync.WaitGroup{}
@@ -40,8 +40,6 @@ func main() {
 			}
 		}
 	}()
-
-	<-interruptCh
 
 	wg.Wait()
 	log.Print("Application was stopped")

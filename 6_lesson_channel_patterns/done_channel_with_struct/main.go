@@ -18,13 +18,16 @@ func NewWorker() Worker {
 
 	go func() {
 		ticker := time.NewTicker(time.Second)
-		defer ticker.Stop()
+		defer func() {
+			ticker.Stop()
+			close(worker.closeDoneCh)
+		}()
 
 		for {
 			select {
 			case <-worker.closeCh:
 				fmt.Println("Worker was stopped")
-				close(worker.closeDoneCh)
+
 				return
 			default:
 			}
@@ -32,7 +35,6 @@ func NewWorker() Worker {
 			select {
 			case <-worker.closeCh:
 				fmt.Println("Worker was stopped")
-				close(worker.closeDoneCh)
 				return
 			case <-ticker.C:
 				fmt.Println("Do something")

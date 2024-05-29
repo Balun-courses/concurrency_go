@@ -40,8 +40,7 @@ func main() {
 		close(in)
 	}()
 
-	out := Bridge(in)
-	for value := range out {
+	for value := range Bridge(in) {
 		fmt.Println(value)
 	}
 }

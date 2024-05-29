@@ -6,10 +6,9 @@ import (
 )
 
 type Promise struct {
-	waitCh      chan struct{}
-	closeDoneCh chan struct{}
-	value       interface{}
-	err         error
+	waitCh chan struct{}
+	value  interface{}
+	err    error
 }
 
 func NewPromise(task func() (interface{}, error)) *Promise {
