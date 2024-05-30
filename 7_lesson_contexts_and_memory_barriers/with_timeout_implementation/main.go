@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -13,7 +14,7 @@ type Context struct {
 
 func WithTimeout(parent Context, duration time.Duration) (*Context, func()) {
 	if atomic.LoadInt32(&parent.closed) == 1 {
-		return nil, nil
+		return nil, nil // don't use nil
 	}
 
 	ctx := &Context{
@@ -43,6 +44,25 @@ func WithTimeout(parent Context, duration time.Duration) (*Context, func()) {
 
 func (c *Context) Done() <-chan struct{} {
 	return c.done
+}
+
+func (c *Context) Err() error {
+	select {
+	case <-c.done:
+		return errors.New("context deadline exceeded")
+	default:
+		return nil
+	}
+}
+
+func (c *Context) Deadline() (time.Time, bool) {
+	// not implemented
+	return time.Time{}, false
+}
+
+func (c *Context) Value(any) any {
+	// not implemented
+	return nil
 }
 
 func main() {

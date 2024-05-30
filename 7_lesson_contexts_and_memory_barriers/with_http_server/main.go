@@ -8,11 +8,11 @@ import (
 
 func main() {
 	helloWorldHandler := http.HandlerFunc(handle)
-	http.Handle("/welcome", inejctTraceID(helloWorldHandler))
-	http.ListenAndServe(":8080", nil)
+	http.Handle("/welcome", injectTraceID(helloWorldHandler))
+	_ = http.ListenAndServe(":8080", nil)
 }
 
-func handle(w http.ResponseWriter, r *http.Request) {
+func handle(_ http.ResponseWriter, r *http.Request) {
 	value, ok := r.Context().Value("trace_id").(string)
 	if ok {
 		fmt.Println(value)
@@ -21,11 +21,11 @@ func handle(w http.ResponseWriter, r *http.Request) {
 	makeRequest(r.Context())
 }
 
-func makeRequest(ctx context.Context) {
-	// request to database
+func makeRequest(_ context.Context) {
+	// requesting to database with context
 }
 
-func inejctTraceID(next http.Handler) http.Handler {
+func injectTraceID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), "trace_id", "12-21-33")
 		req := r.WithContext(ctx)

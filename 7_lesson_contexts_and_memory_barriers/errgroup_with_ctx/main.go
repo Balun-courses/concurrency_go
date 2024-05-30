@@ -17,6 +17,7 @@ func main() {
 	for i := 0; i < 10; i++ {
 		group.Go(func() error {
 			timeout := time.Second * time.Duration(rand.Intn(10))
+
 			timer := time.NewTimer(timeout)
 			defer timer.Stop()
 

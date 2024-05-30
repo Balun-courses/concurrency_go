@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"time"
 )
 
 func main() {
@@ -20,8 +19,7 @@ func main() {
 	})
 
 	server := &http.Server{
-		Addr:    ":8888",
-		Handler: nil,
+		Addr: ":8888",
 	}
 
 	go func() {
@@ -33,10 +31,7 @@ func main() {
 
 	<-ctx.Done()
 
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	if err := server.Shutdown(timeoutCtx); err != nil {
+	if err := server.Shutdown(ctx); err != nil {
 		log.Print(err.Error())
 	}
 

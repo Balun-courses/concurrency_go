@@ -2,7 +2,11 @@ package main
 
 import (
 	"context"
+	"fmt"
+	"time"
 )
+
+// context.AfterFunc
 
 func WithAfterFunc(ctx context.Context, action func()) (context.Context, context.CancelFunc) {
 	ctx, cancel := context.WithCancel(context.Background())
@@ -10,6 +14,7 @@ func WithAfterFunc(ctx context.Context, action func()) (context.Context, context
 	if action != nil {
 		go func() {
 			<-ctx.Done()
+			action()
 		}()
 	}
 
@@ -18,9 +23,11 @@ func WithAfterFunc(ctx context.Context, action func()) (context.Context, context
 
 func main() {
 	afterDone := func() {
-		// do some work
+		fmt.Println("after")
 	}
 
 	_, cancel := WithAfterFunc(context.Background(), afterDone)
-	defer cancel()
+	cancel()
+
+	time.Sleep(100 * time.Millisecond)
 }

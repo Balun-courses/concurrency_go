@@ -22,5 +22,6 @@ func main() {
 	for !done {
 		runtime.Gosched()
 	}
+
 	log.Println(a) // expected to print: hello, world
 }

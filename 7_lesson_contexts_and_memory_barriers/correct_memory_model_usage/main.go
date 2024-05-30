@@ -24,5 +24,5 @@ func main() {
 		runtime.Gosched()
 	}
 
-	log.Println(a) // expected to print: hello, world
+	log.Println(a) // hello, world
 }

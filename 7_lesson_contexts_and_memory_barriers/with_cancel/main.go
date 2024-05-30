@@ -9,8 +9,7 @@ import (
 )
 
 func receiveWeather(ctx context.Context, result chan struct{}, idx int) {
-	value := rand.Intn(5000)
-	randomTime := time.Duration(value) * time.Millisecond
+	randomTime := time.Duration(rand.Intn(5000)) * time.Millisecond
 
 	timer := time.NewTimer(randomTime)
 	defer timer.Stop()
