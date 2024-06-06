@@ -67,7 +67,8 @@ func (sm *ShardedMap) Delete(key string) {
 
 func (sm *ShardedMap) shardIdx(key string) int {
 	h := fnv.New32a()
-	h.Write([]byte(key))
+	_, _ = h.Write([]byte(key))
+
 	hash := int(h.Sum32())
 	return hash % sm.shardsNumber
 }

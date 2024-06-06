@@ -6,8 +6,6 @@ import (
 	"time"
 )
 
-// Need to show solution
-
 type Cache struct {
 	mutex sync.RWMutex
 	data  map[string]string
@@ -18,7 +16,7 @@ func NewCache(ctx context.Context) *Cache {
 		data: make(map[string]string),
 	}
 
-	cache.synchronize(ctx)
+	go cache.synchronize(ctx)
 	return cache
 }
 
@@ -37,11 +35,11 @@ func (c *Cache) synchronize(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			var temp map[string]string
+			var data map[string]string
 			// data = ... - get from remote storage
 
 			c.mutex.Lock()
-			c.data = temp
+			c.data = data
 			c.mutex.Unlock()
 		}
 	}
