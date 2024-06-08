@@ -44,7 +44,7 @@ func (q *Queue) Push(value int) {
 				}
 			} else {
 				// try to fix tail from other goroutine
-				atomic.CompareAndSwapPointer(&q.tail, tail, unsafe.Pointer(node))
+				atomic.CompareAndSwapPointer(&q.tail, tail, next)
 			}
 		}
 	}
