@@ -9,11 +9,6 @@ type scheduler interface {
 	commit(int32, map[string]string) bool
 }
 
-const (
-	setOperation = iota + 1
-	getOperation
-)
-
 type Transaction struct {
 	modified map[string]string
 	cached   map[string]string

@@ -15,7 +15,9 @@ type ActorManager struct {
 
 func GetActorManager() *ActorManager {
 	once.Do(func() {
-		instance = new(ActorManager)
+		instance = &ActorManager{
+			actors: make(map[string]*actor),
+		}
 	})
 
 	return instance
@@ -25,7 +27,7 @@ func (am *ActorManager) CreateActor(address string, executor Executor) error {
 	am.mutex.Lock()
 	defer am.mutex.Unlock()
 
-	if _, found := am.actors[address]; !found {
+	if _, found := am.actors[address]; found {
 		return errors.New("already exists")
 	}
 

@@ -83,7 +83,7 @@ func (s *InMemoryStorage) Get(txID int32, key string) string {
 
 	var value string
 	begin, end := s.data.Range(lowerBound, upperBound)
-	for ; begin != end; begin.Next() {
+	for ; begin != end; begin.Next() { // reverse
 		value = begin.Value()
 	}
 

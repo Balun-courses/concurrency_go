@@ -36,11 +36,11 @@ func (s *MessageSender) Execute(income Message) {
 
 func main() {
 	manager := GetActorManager()
-	if err := manager.CreateActor("processor", &MessageProcessor{}); err != nil {
+	if err := manager.CreateActor(ProcessorActor, &MessageProcessor{}); err != nil {
 		panic("failed to create actor")
 	}
 
-	if err := manager.CreateActor("sender", nil); err != nil {
+	if err := manager.CreateActor(SenderActor, &MessageSender{}); err != nil {
 		panic("failed to create actor")
 	}
 
