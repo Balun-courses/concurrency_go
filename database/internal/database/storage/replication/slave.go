@@ -6,10 +6,12 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"os"
-	"spider/internal/database/storage/wal"
 	"time"
+
+	"go.uber.org/zap"
+
+	"spider/internal/database/storage/wal"
 )
 
 type TCPClient interface {
@@ -18,7 +20,7 @@ type TCPClient interface {
 
 type Slave struct {
 	client          TCPClient
-	stream          chan<- []wal.LogData
+	stream          chan []wal.LogData
 	syncInterval    time.Duration
 	walDirectory    string
 	lastSegmentName string
@@ -31,7 +33,6 @@ type Slave struct {
 
 func NewSlave(
 	client TCPClient,
-	stream chan<- []wal.LogData,
 	walDirectory string,
 	syncInterval time.Duration,
 	logger *zap.Logger,
@@ -50,8 +51,8 @@ func NewSlave(
 	}
 
 	return &Slave{
-		client:          client,
-		stream:          stream,
+		client: client,
+		// stream:          stream, TODO: need to create stream
 		syncInterval:    syncInterval,
 		walDirectory:    walDirectory,
 		lastSegmentName: segmentName,
@@ -89,6 +90,10 @@ func (s *Slave) Shutdown() {
 
 func (s *Slave) IsMaster() bool {
 	return false
+}
+
+func (s *Slave) ReplicationStream() <-chan []wal.LogData {
+	return s.stream
 }
 
 func (s *Slave) synchronize() {

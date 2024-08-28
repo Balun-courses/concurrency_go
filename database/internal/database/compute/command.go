@@ -14,18 +14,33 @@ var (
 	DelCommand     = "DEL"
 )
 
-var commandNamesToId = map[string]int{
-	UnknownCommand: UnknownCommandID,
-	SetCommand:     SetCommandID,
-	GetCommand:     GetCommandID,
-	DelCommand:     DelCommandID,
+var namesToId = map[string]int{
+	SetCommand: SetCommandID,
+	GetCommand: GetCommandID,
+	DelCommand: DelCommandID,
 }
 
-func CommandNameToCommandID(command string) int {
-	status, found := commandNamesToId[command]
+func commandNameToCommandID(command string) int {
+	status, found := namesToId[command]
 	if !found {
 		return UnknownCommandID
 	}
 
 	return status
+}
+
+const (
+	setCommandArgumentsNumber = 2
+	getCommandArgumentsNumber = 1
+	delCommandArgumentsNumber = 1
+)
+
+var argumentsNumber = map[int]int{
+	SetCommandID: setCommandArgumentsNumber,
+	GetCommandID: getCommandArgumentsNumber,
+	DelCommandID: delCommandArgumentsNumber,
+}
+
+func commandArgumentsNumber(commandID int) int {
+	return argumentsNumber[commandID]
 }

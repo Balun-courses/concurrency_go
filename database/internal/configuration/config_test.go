@@ -1,57 +1,87 @@
 package configuration
 
 import (
-	"github.com/stretchr/testify/require"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
-func TestLoadNonExistentFile(t *testing.T) {
+const testCfgData = `
+engine:
+  type: "in_memory"
+  partitions_number: 8
+wal:
+  flushing_batch_length: 100
+  flushing_batch_timeout: "10ms"
+  max_segment_size: "10MB"
+  data_directory: "/data/spider/wal"
+replication:
+  replica_type: "slave"
+  master_address: "127.0.0.1:3232"
+  sync_interval: "1s"
+network:
+  address: "127.0.0.1:3223"
+  max_connections: 100
+  max_message_size: "4KB"
+  idle_timeout: 5m
+logging:
+  level: "info"
+  output: "/log/output.log"
+`
+
+func TestLoad(t *testing.T) {
 	t.Parallel()
 
-	cfg, err := Load("test_data/non_existent_config.yaml")
-	require.Error(t, err)
-	require.Nil(t, cfg)
-}
+	tests := map[string]struct {
+		cfgData string
 
-func TestLoadWithEmptyFilename(t *testing.T) {
-	t.Parallel()
+		expectedCfg Config
+	}{
+		"load empty config": {
+			cfgData: ``,
+		},
+		"load config": {
+			cfgData: testCfgData,
+			expectedCfg: Config{
+				Engine: &EngineConfig{
+					Type:             "in_memory",
+					PartitionsNumber: 8,
+				},
+				WAL: &WALConfig{
+					FlushingBatchLength:  100,
+					FlushingBatchTimeout: 10 * time.Millisecond,
+					MaxSegmentSize:       "10MB",
+					DataDirectory:        "/data/spider/wal",
+				},
+				Replication: &ReplicationConfig{
+					ReplicaType:   "slave",
+					MasterAddress: "127.0.0.1:3232",
+					SyncInterval:  time.Second,
+				},
+				Network: &NetworkConfig{
+					Address:        "127.0.0.1:3223",
+					MaxConnections: 100,
+					MaxMessageSize: "4KB",
+					IdleTimeout:    time.Minute * 5,
+				},
+				Logging: &LoggingConfig{
+					Level:  "info",
+					Output: "/log/output.log",
+				},
+			},
+		},
+	}
 
-	cfg, err := Load("")
-	require.NoError(t, err)
-	require.NotNil(t, cfg)
-}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestLoadEmptyConfig(t *testing.T) {
-	t.Parallel()
-
-	cfg, err := Load("test_data/empty_config.yaml")
-	require.NoError(t, err)
-	require.NotNil(t, cfg)
-}
-
-func TestLoadConfig(t *testing.T) {
-	t.Parallel()
-
-	cfg, err := Load("test_data/config.yaml")
-	require.NoError(t, err)
-
-	require.Equal(t, "in_memory", cfg.Engine.Type)
-
-	require.Equal(t, 100, cfg.WAL.FlushingBatchLength)
-	require.Equal(t, time.Millisecond*10, cfg.WAL.FlushingBatchTimeout)
-	require.Equal(t, "10MB", cfg.WAL.MaxSegmentSize)
-	require.Equal(t, "/data/spider/wal", cfg.WAL.DataDirectory)
-
-	require.Equal(t, "slave", cfg.Replication.ReplicaType)
-	require.Equal(t, "127.0.0.1:3232", cfg.Replication.MasterAddress)
-	require.Equal(t, time.Second, cfg.Replication.SyncInterval)
-
-	require.Equal(t, "127.0.0.1:3223", cfg.Network.Address)
-	require.Equal(t, 100, cfg.Network.MaxConnections)
-	require.Equal(t, "4KB", cfg.Network.MaxMessageSize)
-	require.Equal(t, time.Minute*5, cfg.Network.IdleTimeout)
-
-	require.Equal(t, "info", cfg.Logging.Level)
-	require.Equal(t, "/log/output.log", cfg.Logging.Output)
+			reader := strings.NewReader(test.cfgData)
+			cfg, err := Load(reader)
+			assert.NoError(t, err)
+			assert.Equal(t, test.expectedCfg, *cfg)
+		})
+	}
 }

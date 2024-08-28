@@ -4,10 +4,6 @@ import (
 	"sync"
 )
 
-var HashTableBuilder = func() hashTable {
-	return NewHashTable()
-}
-
 type HashTable struct {
 	mutex sync.RWMutex
 	data  map[string]string

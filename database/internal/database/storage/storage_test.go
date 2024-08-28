@@ -3,11 +3,17 @@ package storage
 import (
 	"context"
 	"errors"
+	"testing"
+	"time"
+
 	"github.com/golang/mock/gomock"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"spider/internal/database/compute"
+	"spider/internal/database/storage/wal"
 	"spider/internal/tools"
-	"testing"
 )
 
 // mockgen -source=storage.go -destination=storage_mock.go -package=storage
@@ -16,134 +22,318 @@ func TestNewStorage(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
-	engine := NewMockEngine(ctrl)
 
-	storage, err := NewStorage(nil, nil, nil, nil)
-	require.Error(t, err, "engine is invalid")
-	require.Nil(t, storage)
+	tests := map[string]struct {
+		engine  Engine
+		logger  *zap.Logger
+		options []StorageOption
 
-	storage, err = NewStorage(engine, nil, nil, nil)
-	require.Error(t, err, "logger is invalid")
-	require.Nil(t, storage)
+		expectedErr    error
+		expectedNilObj bool
+	}{
+		"create storage without engine": {
+			expectedErr:    errors.New("engine is invalid"),
+			expectedNilObj: true,
+		},
+		"create storage without logger": {
+			engine:         NewMockEngine(ctrl),
+			expectedErr:    errors.New("logger is invalid"),
+			expectedNilObj: true,
+		},
+		"create engine without options": {
+			engine:      NewMockEngine(ctrl),
+			logger:      zap.NewNop(),
+			expectedErr: nil,
+		},
+		"create engine with data stream": {
+			engine:      NewMockEngine(ctrl),
+			logger:      zap.NewNop(),
+			options:     []StorageOption{WithDataStream(make(<-chan []wal.LogData))},
+			expectedErr: nil,
+		},
+		"create engine with wal": {
+			engine:      NewMockEngine(ctrl),
+			logger:      zap.NewNop(),
+			options:     []StorageOption{WithWAL(NewMockWAL(ctrl))},
+			expectedErr: nil,
+		},
+		"create engine with replica": {
+			engine:      NewMockEngine(ctrl),
+			logger:      zap.NewNop(),
+			options:     []StorageOption{WithReplication(NewMockReplica(ctrl))},
+			expectedErr: nil,
+		},
+	}
 
-	storage, err = NewStorage(engine, nil, nil, zap.NewNop())
-	require.NoError(t, err)
-	require.NotNil(t, storage)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			storage, err := NewStorage(test.engine, test.logger, test.options...)
+			assert.Equal(t, test.expectedErr, err)
+			if test.expectedNilObj {
+				assert.Nil(t, storage)
+			} else {
+				assert.NotNil(t, storage)
+			}
+		})
+	}
 }
 
-func TestSetWithWALError(t *testing.T) {
+func TestStorageSet(t *testing.T) {
 	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	result := make(chan error, 1)
-	result <- errors.New("wal error")
 
 	ctrl := gomock.NewController(t)
-	engine := NewMockEngine(ctrl)
 
-	wal := NewMockWAL(ctrl)
-	wal.EXPECT().
-		Set(ctx, "key", "value").
-		Return(tools.NewFuture(result))
+	tests := map[string]struct {
+		engine  func() Engine
+		replica func() Replica
+		wal     func() WAL
 
-	storage, err := NewStorage(engine, wal, nil, zap.NewNop())
-	require.NoError(t, err)
+		expectedErr error
+	}{
+		"set with slave replica": {
+			engine: func() Engine { return NewMockEngine(ctrl) },
+			replica: func() Replica {
+				replica := NewMockReplica(ctrl)
+				replica.EXPECT().
+					IsMaster().
+					Return(false)
+				return replica
+			},
+			wal:         func() WAL { return NewMockWAL(ctrl) },
+			expectedErr: ErrorMutableTX,
+		},
+		"set without wal": {
+			engine: func() Engine {
+				engine := NewMockEngine(ctrl)
+				engine.EXPECT().
+					Set(gomock.Any(), "key", "value")
+				return engine
+			},
+			replica: func() Replica { return nil },
+			wal:     func() WAL { return nil },
+		},
+		"set with error from wal": {
+			engine:  func() Engine { return NewMockEngine(ctrl) },
+			replica: func() Replica { return nil },
+			wal: func() WAL {
+				result := make(chan error, 1)
+				result <- errors.New("wal error")
+				future := tools.NewFuture(result)
 
-	err = storage.Set(ctx, "key", "value")
-	require.Error(t, err, "wal error")
+				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Set(gomock.Any(), "key", "value").
+					Return(future)
+				return wal
+			},
+			expectedErr: errors.New("wal error"),
+		},
+		"set with wal": {
+			engine: func() Engine {
+				engine := NewMockEngine(ctrl)
+				engine.EXPECT().
+					Set(gomock.Any(), "key", "value")
+				return engine
+			},
+			replica: func() Replica { return nil },
+			wal: func() WAL {
+				result := make(chan error, 1)
+				result <- nil
+				future := tools.NewFuture(result)
+
+				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Set(gomock.Any(), "key", "value").
+					Return(future)
+				return wal
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			options := []StorageOption{
+				WithWAL(test.wal()),
+				WithReplication(test.replica()),
+			}
+
+			storage, err := NewStorage(test.engine(), zap.NewNop(), options...)
+			require.NoError(t, err)
+
+			err = storage.Set(context.Background(), "key", "value")
+			assert.Equal(t, test.expectedErr, err)
+		})
+	}
 }
 
-func TestSuccessfulSet(t *testing.T) {
+func TestStorageDel(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
+	ctrl := gomock.NewController(t)
 
-	result := make(chan error, 1)
-	result <- nil
+	tests := map[string]struct {
+		engine  func() Engine
+		replica func() Replica
+		wal     func() WAL
+
+		expectedErr error
+	}{
+		"del with slave replica": {
+			engine: func() Engine { return NewMockEngine(ctrl) },
+			replica: func() Replica {
+				replica := NewMockReplica(ctrl)
+				replica.EXPECT().
+					IsMaster().
+					Return(false)
+				return replica
+			},
+			wal:         func() WAL { return NewMockWAL(ctrl) },
+			expectedErr: ErrorMutableTX,
+		},
+		"del without wal": {
+			engine: func() Engine {
+				engine := NewMockEngine(ctrl)
+				engine.EXPECT().
+					Del(gomock.Any(), "key")
+				return engine
+			},
+			replica: func() Replica { return nil },
+			wal:     func() WAL { return nil },
+		},
+		"del with error from wal": {
+			engine:  func() Engine { return NewMockEngine(ctrl) },
+			replica: func() Replica { return nil },
+			wal: func() WAL {
+				result := make(chan error, 1)
+				result <- errors.New("wal error")
+				future := tools.NewFuture(result)
+
+				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Del(gomock.Any(), "key").
+					Return(future)
+				return wal
+			},
+			expectedErr: errors.New("wal error"),
+		},
+		"del with wal": {
+			engine: func() Engine {
+				engine := NewMockEngine(ctrl)
+				engine.EXPECT().
+					Del(gomock.Any(), "key")
+				return engine
+			},
+			replica: func() Replica { return nil },
+			wal: func() WAL {
+				result := make(chan error, 1)
+				result <- nil
+				future := tools.NewFuture(result)
+
+				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Del(gomock.Any(), "key").
+					Return(future)
+				return wal
+			},
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			options := []StorageOption{
+				WithWAL(test.wal()),
+				WithReplication(test.replica()),
+			}
+
+			storage, err := NewStorage(test.engine(), zap.NewNop(), options...)
+			require.NoError(t, err)
+
+			err = storage.Del(context.Background(), "key")
+			assert.Equal(t, test.expectedErr, err)
+		})
+	}
+}
+
+func TestStorageGet(t *testing.T) {
+	t.Parallel()
+
+	ctrl := gomock.NewController(t)
+
+	tests := map[string]struct {
+		engine func() Engine
+
+		expectedValue string
+		expectedErr   error
+	}{
+		"get with unexesiting element": {
+			engine: func() Engine {
+				engine := NewMockEngine(ctrl)
+				engine.EXPECT().
+					Get(gomock.Any(), "key").
+					Return("", false)
+				return engine
+			},
+			expectedErr: ErrorNotFound,
+		},
+		"get with exesiting element": {
+			engine: func() Engine {
+				engine := NewMockEngine(ctrl)
+				engine.EXPECT().
+					Get(gomock.Any(), "key").
+					Return("value", true)
+				return engine
+			},
+			expectedValue: "value",
+		},
+	}
+
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			storage, err := NewStorage(test.engine(), zap.NewNop())
+			require.NoError(t, err)
+
+			value, err := storage.Get(context.Background(), "key")
+			assert.Equal(t, test.expectedErr, err)
+			assert.Equal(t, test.expectedValue, value)
+		})
+	}
+}
+
+func TestStorageWithDataStream(t *testing.T) {
+	t.Parallel()
 
 	ctrl := gomock.NewController(t)
 	engine := NewMockEngine(ctrl)
 	engine.EXPECT().
-		Set(ctx, "key", "value")
-
-	wal := NewMockWAL(ctrl)
-	wal.EXPECT().
-		Set(ctx, "key", "value").
-		Return(tools.NewFuture(result))
-
-	storage, err := NewStorage(engine, wal, nil, zap.NewNop())
-	require.NoError(t, err)
-
-	err = storage.Set(ctx, "key", "value")
-	require.NoError(t, err)
-}
-
-func TestSuccessfulGet(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	result := make(chan error, 1)
-	result <- nil
-
-	ctrl := gomock.NewController(t)
-	engine := NewMockEngine(ctrl)
+		Set(gomock.Any(), "key_1", "value_1")
 	engine.EXPECT().
-		Get(ctx, "key").Return("value", true)
+		Del(gomock.Any(), "key_2")
 
-	storage, err := NewStorage(engine, nil, nil, zap.NewNop())
+	dataStream := make(chan []wal.LogData)
+	_, err := NewStorage(engine, zap.NewNop(), WithDataStream(dataStream))
 	require.NoError(t, err)
 
-	value, err := storage.Get(ctx, "key")
-	require.NoError(t, err)
-	require.Equal(t, "value", value)
-}
+	dataStream <- []wal.LogData{
+		{
+			LSN:       1,
+			CommandID: compute.SetCommandID,
+			Arguments: []string{"key_1", "value_1"},
+		},
+		{
+			LSN:       2,
+			CommandID: compute.DelCommandID,
+			Arguments: []string{"key_2"},
+		},
+	}
 
-func TestDelWithWALError(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	result := make(chan error, 1)
-	result <- errors.New("wal error")
-
-	ctrl := gomock.NewController(t)
-	engine := NewMockEngine(ctrl)
-
-	wal := NewMockWAL(ctrl)
-	wal.EXPECT().
-		Del(ctx, "key").
-		Return(tools.NewFuture(result))
-
-	storage, err := NewStorage(engine, wal, nil, zap.NewNop())
-	require.NoError(t, err)
-
-	err = storage.Del(ctx, "key")
-	require.Error(t, err, "wal error")
-}
-
-func TestSuccessfulDel(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	result := make(chan error, 1)
-	result <- nil
-
-	ctrl := gomock.NewController(t)
-	engine := NewMockEngine(ctrl)
-	engine.EXPECT().
-		Del(ctx, "key")
-
-	wal := NewMockWAL(ctrl)
-	wal.EXPECT().
-		Del(ctx, "key").
-		Return(tools.NewFuture(result))
-
-	storage, err := NewStorage(engine, wal, nil, zap.NewNop())
-	require.NoError(t, err)
-
-	err = storage.Del(ctx, "key")
-	require.NoError(t, err)
+	close(dataStream)
+	time.Sleep(100 * time.Millisecond) // TODO: need to fix time waiting
 }

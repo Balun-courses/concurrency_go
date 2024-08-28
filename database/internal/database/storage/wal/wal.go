@@ -2,11 +2,13 @@ package wal
 
 import (
 	"context"
-	"go.uber.org/zap"
-	"spider/internal/database/compute"
-	"spider/internal/tools"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
+
+	"spider/internal/database/compute"
+	"spider/internal/tools"
 )
 
 type fsWriter interface {
@@ -36,7 +38,6 @@ type WAL struct {
 func NewWAL(
 	fsWriter fsWriter,
 	fsReader fsReader,
-	stream chan<- []LogData,
 	flushTimeout time.Duration,
 	maxBatchSize int,
 	logger *zap.Logger,
@@ -52,7 +53,6 @@ func NewWAL(
 		logger:       logger,
 	}
 
-	wal.tryRecoverWALSegments(stream)
 	return wal
 }
 
@@ -116,11 +116,11 @@ func (w *WAL) push(ctx context.Context, commandID int, args []string) tools.Futu
 	return record.Result()
 }
 
-func (w *WAL) tryRecoverWALSegments(stream chan<- []LogData) {
+func (w *WAL) Recover() ([]LogData, error) {
 	logs, err := w.fsReader.ReadLogs()
 	if err != nil {
-		w.logger.Error("failed to recover WAL segments", zap.Error(err))
-	} else {
-		stream <- logs
+		return nil, err
 	}
+
+	return logs, nil
 }

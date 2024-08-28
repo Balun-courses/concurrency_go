@@ -4,9 +4,10 @@ import (
 	"bytes"
 	"encoding/gob"
 	"fmt"
-	"go.uber.org/zap"
 	"os"
 	"time"
+
+	"go.uber.org/zap"
 )
 
 var now = time.Now

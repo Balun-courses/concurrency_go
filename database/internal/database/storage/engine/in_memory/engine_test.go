@@ -2,109 +2,173 @@ package in_memory
 
 import (
 	"context"
-	"github.com/golang/mock/gomock"
+	"errors"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"spider/internal/database/storage/wal"
-	"testing"
 )
-
-// mockgen -source=engine.go -destination=engine_mock.go -package=in_memory
 
 func TestNewEngine(t *testing.T) {
 	t.Parallel()
 
-	tableBuilder := func() hashTable {
-		ctrl := gomock.NewController(t)
-		return NewMockhashTable(ctrl)
+	tests := map[string]struct {
+		logger         *zap.Logger
+		options        []EngineOption
+		expectedErr    error
+		expectedNilObj bool
+	}{
+		"create engine without logger": {
+			expectedErr:    errors.New("logger is invalid"),
+			expectedNilObj: true,
+		},
+		"create engine without options": {
+			logger:      zap.NewNop(),
+			expectedErr: nil,
+		},
+		"create engine with partitions": {
+			logger:      zap.NewNop(),
+			options:     []EngineOption{WithPartitions(10)},
+			expectedErr: nil,
+		},
 	}
 
-	engine, err := NewEngine(nil, nil, -1, nil)
-	require.Error(t, err, "hash table builder is invalid")
-	require.Nil(t, engine)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	engine, err = NewEngine(tableBuilder, nil, -1, nil)
-	require.Error(t, err, "stream is invalid")
-	require.Nil(t, engine)
-
-	engine, err = NewEngine(tableBuilder, make(chan []wal.LogData), -1, nil)
-	require.Error(t, err, "partitions number is invalid")
-	require.Nil(t, engine)
-
-	engine, err = NewEngine(tableBuilder, make(chan []wal.LogData), 1, nil)
-	require.Error(t, err, "logger is invalid")
-	require.Nil(t, engine)
-
-	stream := make(chan []wal.LogData)
-	engine, err = NewEngine(tableBuilder, stream, 10, zap.NewNop())
-	require.NoError(t, err)
-	require.NotNil(t, engine)
-	close(stream)
+			engine, err := NewEngine(test.logger, test.options...)
+			assert.Equal(t, test.expectedErr, err)
+			if test.expectedNilObj {
+				assert.Nil(t, engine)
+			} else {
+				assert.NotNil(t, engine)
+			}
+		})
+	}
 }
 
-func TestSetQuery(t *testing.T) {
+func TestEngineSet(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	tableBuilder := func() hashTable {
-		ctrl := gomock.NewController(t)
-		table := NewMockhashTable(ctrl)
-		table.EXPECT().Set("key_1", "value_1")
-		return table
+	tests := map[string]struct {
+		engine *Engine
+		key    string
+		value  string
+	}{
+		"set with single partition": {
+			engine: func() *Engine {
+				engine, err := NewEngine(zap.NewNop())
+				require.NoError(t, err)
+				return engine
+			}(),
+			key: "key",
+		},
+		"set with multiple partitions": {
+			engine: func() *Engine {
+				const partitionsNumber uint = 8
+				engine, err := NewEngine(zap.NewNop(), WithPartitions(partitionsNumber))
+				require.NoError(t, err)
+				return engine
+			}(),
+			key:   "key",
+			value: "value",
+		},
 	}
 
-	stream := make(chan []wal.LogData)
-	engine, err := NewEngine(tableBuilder, stream, 1, zap.NewNop())
-	require.NoError(t, err)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	engine.Set(ctx, "key_1", "value_1")
-	close(stream)
+			const txID int64 = 1
+			ctx := context.WithValue(context.Background(), "tx", txID)
+
+			test.engine.Set(ctx, test.key, test.value)
+			value, found := test.engine.Get(ctx, test.key)
+			assert.True(t, found)
+			assert.Equal(t, test.value, value)
+		})
+	}
 }
 
-func TestGetQuery(t *testing.T) {
+func TestEngineDel(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	tableBuilder := func() hashTable {
-		ctrl := gomock.NewController(t)
-		table := NewMockhashTable(ctrl)
-		table.EXPECT().Get("key_1").Return("value_1", true)
-		table.EXPECT().Get("key_2").Return("", false)
-		return table
+	tests := map[string]struct {
+		engine *Engine
+		key    string
+	}{
+		"del with single partition": {
+			engine: func() *Engine {
+				engine, err := NewEngine(zap.NewNop())
+				require.NoError(t, err)
+				return engine
+			}(),
+			key: "key",
+		},
+		"del with multiple partitions": {
+			engine: func() *Engine {
+				const partitionsNumber uint = 8
+				engine, err := NewEngine(zap.NewNop(), WithPartitions(partitionsNumber))
+				require.NoError(t, err)
+				return engine
+			}(),
+			key: "key",
+		},
 	}
 
-	stream := make(chan []wal.LogData)
-	engine, err := NewEngine(tableBuilder, stream, 1, zap.NewNop())
-	require.NoError(t, err)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	value, found := engine.Get(ctx, "key_1")
-	require.Equal(t, "value_1", value)
-	require.True(t, found)
+			const txID int64 = 1
+			ctx := context.WithValue(context.Background(), "tx", txID)
 
-	value, found = engine.Get(ctx, "key_2")
-	require.Equal(t, "", value)
-	require.False(t, found)
-	close(stream)
+			test.engine.Del(ctx, test.key)
+			value, found := test.engine.Get(ctx, test.key)
+			assert.False(t, found)
+			assert.Empty(t, value)
+		})
+	}
 }
 
-func TestDelQuery(t *testing.T) {
+func TestEngineGet(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	tableBuilder := func() hashTable {
-		ctrl := gomock.NewController(t)
-		table := NewMockhashTable(ctrl)
-		table.EXPECT().Del("key_1")
-		return table
+	tests := map[string]struct {
+		engine *Engine
+		key    string
+	}{
+		"get with single partition": {
+			engine: func() *Engine {
+				engine, err := NewEngine(zap.NewNop())
+				require.NoError(t, err)
+				return engine
+			}(),
+			key: "key",
+		},
+		"get with multiple partitions": {
+			engine: func() *Engine {
+				const partitionsNumber uint = 8
+				engine, err := NewEngine(zap.NewNop(), WithPartitions(partitionsNumber))
+				require.NoError(t, err)
+				return engine
+			}(),
+			key: "key",
+		},
 	}
 
-	stream := make(chan []wal.LogData)
-	engine, err := NewEngine(tableBuilder, stream, 1, zap.NewNop())
-	require.NoError(t, err)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	engine.Del(ctx, "key_1")
-	close(stream)
+			const txID int64 = 1
+			ctx := context.WithValue(context.Background(), "tx", txID)
+
+			value, found := test.engine.Get(ctx, test.key)
+			assert.False(t, found)
+			assert.Empty(t, value)
+		})
+	}
 }

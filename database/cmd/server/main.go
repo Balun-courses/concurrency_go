@@ -1,13 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"log"
 	"os"
 	"os/signal"
+	"syscall"
+
 	"spider/internal/configuration"
 	"spider/internal/initialization"
-	"syscall"
 )
 
 var (
@@ -20,8 +22,13 @@ func main() {
 
 	cfg := &configuration.Config{}
 	if ConfigFileName != "" {
-		var err error
-		cfg, err = configuration.Load(ConfigFileName)
+		data, err := os.ReadFile(ConfigFileName)
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		reader := bytes.NewReader(data)
+		cfg, err = configuration.Load(reader)
 		if err != nil {
 			log.Fatal(err)
 		}

@@ -2,10 +2,12 @@ package initialization
 
 import (
 	"context"
-	"github.com/stretchr/testify/require"
-	"spider/internal/configuration"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/require"
+
+	"spider/internal/configuration"
 )
 
 func TestFailedInitializerCreation(t *testing.T) {

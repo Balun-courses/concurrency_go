@@ -2,16 +2,18 @@ package initialization
 
 import (
 	"errors"
+	"time"
+
 	"go.uber.org/zap"
+
 	"spider/internal/configuration"
 	"spider/internal/network"
 	"spider/internal/tools"
-	"time"
 )
 
 const defaultServerAddress = "localhost:3223"
 const defaultMaxConnectionNumber = 100
-const defaultMaxMessageSize = 2048
+const defaultMaxMessageSize = 2 << 10
 const defaultIdleTimeout = time.Minute * 5
 
 func CreateNetwork(cfg *configuration.NetworkConfig, logger *zap.Logger) (*network.TCPServer, error) {

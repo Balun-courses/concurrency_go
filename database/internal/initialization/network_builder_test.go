@@ -1,10 +1,12 @@
 package initialization
 
 import (
+	"testing"
+
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
 	"spider/internal/configuration"
-	"testing"
 )
 
 func TestCreateNetworkWithoutConfig(t *testing.T) {

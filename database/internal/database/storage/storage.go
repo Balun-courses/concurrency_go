@@ -3,8 +3,17 @@ package storage
 import (
 	"context"
 	"errors"
+
 	"go.uber.org/zap"
+
+	"spider/internal/database/compute"
+	"spider/internal/database/storage/wal"
 	"spider/internal/tools"
+)
+
+var (
+	ErrorNotFound  = errors.New("not found")
+	ErrorMutableTX = errors.New("mutable transaction on slave")
 )
 
 type Engine interface {
@@ -14,31 +23,27 @@ type Engine interface {
 }
 
 type WAL interface {
-	Start()
+	Recover() ([]wal.LogData, error)
 	Set(context.Context, string, string) tools.FutureError
 	Del(context.Context, string) tools.FutureError
 	Shutdown()
 }
 
 type Replica interface {
-	Start(context.Context)
 	IsMaster() bool
 	Shutdown()
 }
 
 type Storage struct {
-	engine  Engine
-	wal     WAL
-	replica Replica
-	logger  *zap.Logger
+	engine    Engine
+	replica   Replica
+	wal       WAL
+	stream    <-chan []wal.LogData
+	generator *IDGenerator
+	logger    *zap.Logger
 }
 
-func NewStorage(
-	engine Engine,
-	wal WAL,
-	replica Replica,
-	logger *zap.Logger,
-) (*Storage, error) {
+func NewStorage(engine Engine, logger *zap.Logger, options ...StorageOption) (*Storage, error) {
 	if engine == nil {
 		return nil, errors.New("engine is invalid")
 	}
@@ -47,45 +52,45 @@ func NewStorage(
 		return nil, errors.New("logger is invalid")
 	}
 
-	return &Storage{
-		engine:  engine,
-		wal:     wal,
-		logger:  logger,
-		replica: replica,
-	}, nil
-}
+	storage := &Storage{
+		engine:    engine,
+		logger:    logger,
+		generator: NewIDGenerator(0), // TODO: need to update after recovering
+	}
 
-func (s *Storage) Start(ctx context.Context) {
-	if s.wal != nil {
-		if s.replica != nil {
-			if s.replica.IsMaster() {
-				s.wal.Start()
-			}
+	for _, option := range options {
+		option(storage)
+	}
 
-			s.replica.Start(ctx)
+	if storage.wal != nil {
+		logs, err := storage.wal.Recover()
+		if err != nil {
+			logger.Error("failed to recover data from WAL", zap.Error(err))
 		} else {
-			s.wal.Start()
+			storage.applyData(logs)
 		}
 	}
-}
 
-func (s *Storage) Shutdown() {
-	if s.wal != nil {
-		if s.replica != nil {
-			s.replica.Shutdown()
-			if s.replica.IsMaster() {
-				s.wal.Shutdown()
+	if storage.stream != nil {
+		go func() {
+			for logs := range storage.stream {
+				storage.applyData(logs)
 			}
-		} else {
-			s.wal.Shutdown()
-		}
+		}()
 	}
+
+	return storage, nil
 }
 
 func (s *Storage) Set(ctx context.Context, key, value string) error {
 	if s.replica != nil && !s.replica.IsMaster() {
-		return errors.New("mutable transaction on slave")
+		return ErrorMutableTX
+	} else if ctx.Err() != nil {
+		return ctx.Err()
 	}
+
+	txID := s.generator.Generate()
+	ctx = context.WithValue(ctx, "tx", txID)
 
 	if s.wal != nil {
 		future := s.wal.Set(ctx, key, value)
@@ -100,8 +105,13 @@ func (s *Storage) Set(ctx context.Context, key, value string) error {
 
 func (s *Storage) Del(ctx context.Context, key string) error {
 	if s.replica != nil && !s.replica.IsMaster() {
-		return errors.New("mutable transaction on slave")
+		return ErrorMutableTX
+	} else if ctx.Err() != nil {
+		return ctx.Err()
 	}
+
+	txID := s.generator.Generate()
+	ctx = context.WithValue(ctx, "tx", txID)
 
 	if s.wal != nil {
 		future := s.wal.Del(ctx, key)
@@ -115,6 +125,29 @@ func (s *Storage) Del(ctx context.Context, key string) error {
 }
 
 func (s *Storage) Get(ctx context.Context, key string) (string, error) {
-	value, _ := s.engine.Get(ctx, key)
+	if ctx.Err() != nil {
+		return "", ctx.Err()
+	}
+
+	txID := s.generator.Generate()
+	ctx = context.WithValue(ctx, "tx", txID)
+
+	value, found := s.engine.Get(ctx, key)
+	if !found {
+		return "", ErrorNotFound
+	}
+
 	return value, nil
+}
+
+func (s *Storage) applyData(logs []wal.LogData) {
+	for _, log := range logs {
+		ctx := context.WithValue(context.Background(), "tx", log.LSN)
+		switch log.CommandID {
+		case compute.SetCommandID:
+			s.engine.Set(ctx, log.Arguments[0], log.Arguments[1])
+		case compute.DelCommandID:
+			s.engine.Del(ctx, log.Arguments[0])
+		}
+	}
 }

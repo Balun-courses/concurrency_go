@@ -1,101 +1,110 @@
 package compute
 
 import (
-	"context"
-	"github.com/golang/mock/gomock"
+	"errors"
+	"reflect"
+	"testing"
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
-	"testing"
 )
-
-// mockgen -source=compute.go -destination=compute_mock.go -package=compute
 
 func TestNewCompute(t *testing.T) {
 	t.Parallel()
 
-	ctrl := gomock.NewController(t)
-	parser := NewMockparser(ctrl)
-	analyzer := NewMockanalyzer(ctrl)
+	tests := map[string]struct {
+		logger *zap.Logger
 
-	compute, err := NewCompute(nil, nil, nil)
-	require.Error(t, err, "query parser is invalid")
-	require.Nil(t, compute)
+		expectedErr    error
+		expectedNilObj bool
+	}{
+		"create compute without logger": {
+			expectedErr:    errors.New("logger is invalid"),
+			expectedNilObj: true,
+		},
+		"create compute": {
+			logger:      zap.NewNop(),
+			expectedErr: nil,
+		},
+	}
 
-	compute, err = NewCompute(parser, nil, nil)
-	require.Error(t, err, "query analyzer is invalid")
-	require.Nil(t, compute)
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	compute, err = NewCompute(parser, analyzer, nil)
-	require.Error(t, err, "logger is invalid")
-	require.Nil(t, compute)
-
-	compute, err = NewCompute(parser, analyzer, zap.NewNop())
-	require.NoError(t, err)
-	require.NotNil(t, compute)
+			compute, err := NewCompute(test.logger)
+			assert.Equal(t, test.expectedErr, err)
+			if test.expectedNilObj {
+				assert.Nil(t, compute)
+			} else {
+				assert.NotNil(t, compute)
+			}
+		})
+	}
 }
 
-func TestHandleQueryWithParsingError(t *testing.T) {
+func TestParse(t *testing.T) {
 	t.Parallel()
 
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
+	tests := map[string]struct {
+		queryStr string
 
-	ctrl := gomock.NewController(t)
-	parser := NewMockparser(ctrl)
-	parser.EXPECT().
-		ParseQuery(ctx, "## key").
-		Return(nil, errInvalidCommand)
-	analyzer := NewMockanalyzer(ctrl)
+		expectedQuery Query
+		expectedErr   error
+	}{
+		"empty query": {
+			queryStr:    "",
+			expectedErr: errInvalidQuery,
+		},
+		"empty query without tokens": {
+			queryStr:    "   ",
+			expectedErr: errInvalidQuery,
+		},
+		"query with UTF symbols": {
+			queryStr:    "字文下",
+			expectedErr: errInvalidCommand,
+		},
+		"invalid command": {
+			queryStr:    "TRUNCATE",
+			expectedErr: errInvalidCommand,
+		},
+		"invalid number arguments for set query": {
+			queryStr:    "SET key",
+			expectedErr: errInvalidArguments,
+		},
+		"invalid number arguments for get query": {
+			queryStr:    "GET key value",
+			expectedErr: errInvalidArguments,
+		},
+		"invalid number arguments for del query": {
+			queryStr:    "GET key value",
+			expectedErr: errInvalidArguments,
+		},
+		"set query": {
+			queryStr:      "SET __key__\nvalue",
+			expectedQuery: NewQuery(SetCommandID, []string{"__key__", "value"}),
+		},
+		"get query": {
+			queryStr:      "GET\t1key2",
+			expectedQuery: NewQuery(GetCommandID, []string{"1key2"}),
+		},
+		"del query": {
+			queryStr:      "DEL  /key-",
+			expectedQuery: NewQuery(DelCommandID, []string{"/key-"}),
+		},
+	}
 
-	compute, err := NewCompute(parser, analyzer, zap.NewNop())
+	compute, err := NewCompute(zap.NewNop())
 	require.NoError(t, err)
 
-	query, err := compute.HandleQuery(ctx, "## key")
-	require.Error(t, err, errInvalidCommand)
-	require.Equal(t, Query{}, query)
-}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestHandleQueryWithAnalyzingError(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	ctrl := gomock.NewController(t)
-	parser := NewMockparser(ctrl)
-	parser.EXPECT().
-		ParseQuery(ctx, "TRUNCATE key").
-		Return([]string{"TRUNCATE", "key"}, nil)
-	analyzer := NewMockanalyzer(ctrl)
-	analyzer.EXPECT().
-		AnalyzeQuery(ctx, []string{"TRUNCATE", "key"}).
-		Return(Query{}, errInvalidCommand)
-
-	compute, err := NewCompute(parser, analyzer, zap.NewNop())
-	require.NoError(t, err)
-
-	query, err := compute.HandleQuery(ctx, "TRUNCATE key")
-	require.Error(t, err, errInvalidCommand)
-	require.Equal(t, Query{}, query)
-}
-
-func TestHandleQuery(t *testing.T) {
-	t.Parallel()
-
-	ctx := context.WithValue(context.Background(), "tx", int64(555))
-
-	ctrl := gomock.NewController(t)
-	parser := NewMockparser(ctrl)
-	parser.EXPECT().
-		ParseQuery(ctx, "GET key").
-		Return([]string{"GET", "key"}, nil)
-	analyzer := NewMockanalyzer(ctrl)
-	analyzer.EXPECT().
-		AnalyzeQuery(ctx, []string{"GET", "key"}).
-		Return(NewQuery(GetCommandID, []string{"key"}), nil)
-
-	compute, err := NewCompute(parser, analyzer, zap.NewNop())
-	require.NoError(t, err)
-
-	query, err := compute.HandleQuery(ctx, "GET key")
-	require.NoError(t, err)
-	require.Equal(t, NewQuery(GetCommandID, []string{"key"}), query)
+			query, err := compute.Parse(test.queryStr)
+			assert.Equal(t, test.expectedErr, err)
+			assert.True(t, reflect.DeepEqual(test.expectedQuery, query))
+		})
+	}
 }

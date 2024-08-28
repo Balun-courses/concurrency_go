@@ -1,10 +1,12 @@
 package configuration
 
 import (
+	"errors"
 	"fmt"
-	"gopkg.in/yaml.v3"
-	"os"
+	"io"
 	"time"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -16,7 +18,8 @@ type Config struct {
 }
 
 type EngineConfig struct {
-	Type string `yaml:"type"`
+	Type             string `yaml:"type"`
+	PartitionsNumber uint   `yaml:"partitions_number"`
 }
 
 type WALConfig struct {
@@ -44,18 +47,18 @@ type LoggingConfig struct {
 	Output string `yaml:"output"`
 }
 
-func Load(filename string) (*Config, error) {
-	if filename == "" {
-		return &Config{}, nil
+func Load(reader io.Reader) (*Config, error) {
+	if reader == nil {
+		return nil, errors.New("incorrect reader")
 	}
 
-	data, err := os.ReadFile(filename)
+	data, err := io.ReadAll(reader)
 	if err != nil {
-		return nil, fmt.Errorf("failed to load config: %w", err)
+		return nil, errors.New("falied to read buffer")
 	}
 
 	var config Config
-	if err = yaml.Unmarshal(data, &config); err != nil {
+	if err := yaml.Unmarshal(data, &config); err != nil {
 		return nil, fmt.Errorf("failed to parse config: %w", err)
 	}
 

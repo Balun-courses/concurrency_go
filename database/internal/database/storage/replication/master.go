@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"os"
+
+	"go.uber.org/zap"
+
 	"spider/internal/database/storage/wal"
 )
 

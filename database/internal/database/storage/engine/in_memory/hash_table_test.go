@@ -1,18 +1,21 @@
 package in_memory
 
 import (
-	"github.com/stretchr/testify/require"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestCreateStorage(t *testing.T) {
+func TestNewHashTable(t *testing.T) {
 	t.Parallel()
 
 	table := NewHashTable()
-	require.NotNil(t, table.data)
+	require.NotNil(t, table)
+	assert.NotNil(t, table.data)
 }
 
-func TestSet(t *testing.T) {
+func TestHashTableSet(t *testing.T) {
 	t.Parallel()
 
 	table := &HashTable{
@@ -22,24 +25,36 @@ func TestSet(t *testing.T) {
 		},
 	}
 
-	t.Run("test set not existing key", func(t *testing.T) {
-		table.Set("key_3", "new_value")
+	tests := map[string]struct {
+		key           string
+		value         string
+		expectedValue string
+	}{
+		"set not existing key": {
+			key:           "key_3",
+			value:         "new_value",
+			expectedValue: "new_value",
+		},
+		"set existing key": {
+			key:           "key_1",
+			value:         "new_value",
+			expectedValue: "new_value",
+		},
+	}
 
-		value, found := table.data["key_3"]
-		require.Equal(t, "new_value", value)
-		require.True(t, found)
-	})
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("test set existing key", func(t *testing.T) {
-		table.Set("key_1", "new_value")
-
-		value, found := table.data["key_1"]
-		require.Equal(t, "new_value", value)
-		require.True(t, found)
-	})
+			table.Set(test.key, test.value)
+			value, found := table.Get(test.key)
+			assert.Equal(t, test.expectedValue, value)
+			assert.True(t, found)
+		})
+	}
 }
 
-func TestGet(t *testing.T) {
+func TestHashTableGet(t *testing.T) {
 	t.Parallel()
 
 	table := &HashTable{
@@ -49,20 +64,35 @@ func TestGet(t *testing.T) {
 		},
 	}
 
-	t.Run("test get not existing key", func(t *testing.T) {
-		value, found := table.Get("key_3")
-		require.Equal(t, "", value)
-		require.False(t, found)
-	})
+	tests := map[string]struct {
+		key           string
+		expectedValue string
+		found         bool
+	}{
+		"get not existing key": {
+			key:           "key_3",
+			found:         false,
+			expectedValue: "",
+		},
+		"get existing key": {
+			key:           "key_1",
+			found:         true,
+			expectedValue: "value_1",
+		},
+	}
 
-	t.Run("test get existing key", func(t *testing.T) {
-		value, found := table.Get("key_1")
-		require.Equal(t, "value_1", value)
-		require.True(t, found)
-	})
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			value, found := table.Get(test.key)
+			assert.Equal(t, test.expectedValue, value)
+			assert.Equal(t, test.found, found)
+		})
+	}
 }
 
-func TestDel(t *testing.T) {
+func TestHashTableDel(t *testing.T) {
 	t.Parallel()
 
 	table := &HashTable{
@@ -72,23 +102,25 @@ func TestDel(t *testing.T) {
 		},
 	}
 
-	t.Run("test del not existing key", func(t *testing.T) {
-		table.Del("key_3")
+	tests := map[string]struct {
+		key string
+	}{
+		"del not existing key": {
+			key: "key_3",
+		},
+		"del existing key": {
+			key: "key_1",
+		},
+	}
 
-		_, found := table.data["key_3"]
-		require.False(t, found)
-		_, found = table.data["key_2"]
-		require.True(t, found)
-		_, found = table.data["key_1"]
-		require.True(t, found)
-	})
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-	t.Run("test del existing key", func(t *testing.T) {
-		table.Del("key_1")
-
-		_, found := table.data["key_1"]
-		require.False(t, found)
-		_, found = table.data["key_2"]
-		require.True(t, found)
-	})
+			table.Del(test.key)
+			value, found := table.Get(test.key)
+			assert.Equal(t, "", value)
+			assert.False(t, found)
+		})
+	}
 }

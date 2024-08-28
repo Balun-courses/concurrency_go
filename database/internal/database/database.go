@@ -4,26 +4,26 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"go.uber.org/zap"
+
 	"spider/internal/database/compute"
+	"spider/internal/database/storage"
 )
 
 type computeLayer interface {
-	HandleQuery(context.Context, string) (compute.Query, error)
+	Parse(string) (compute.Query, error)
 }
 
 type storageLayer interface {
-	Start(context.Context)
 	Set(context.Context, string, string) error
 	Get(context.Context, string) (string, error)
 	Del(context.Context, string) error
-	Shutdown()
 }
 
 type Database struct {
 	computeLayer computeLayer
 	storageLayer storageLayer
-	idGenerator  *IDGenerator
 	logger       *zap.Logger
 }
 
@@ -43,30 +43,13 @@ func NewDatabase(computeLayer computeLayer, storageLayer storageLayer, logger *z
 	return &Database{
 		computeLayer: computeLayer,
 		storageLayer: storageLayer,
-		idGenerator:  NewIDGenerator(),
 		logger:       logger,
 	}, nil
 }
 
-func (d *Database) Start(ctx context.Context) {
-	d.Start(ctx)
-}
-
-func (d *Database) Shutdown() {
-	d.storageLayer.Shutdown()
-}
-
 func (d *Database) HandleQuery(ctx context.Context, queryStr string) string {
-	txID := d.idGenerator.Generate()
-	ctx = context.WithValue(ctx, "tx", txID)
-
-	d.logger.Debug(
-		"handling query",
-		zap.Int64("tx", txID),
-		zap.String("query", queryStr),
-	)
-
-	query, err := d.computeLayer.HandleQuery(ctx, queryStr)
+	d.logger.Debug("handling query", zap.String("query", queryStr))
+	query, err := d.computeLayer.Parse(queryStr)
 	if err != nil {
 		return fmt.Sprintf("[error] %s", err.Error())
 	}
@@ -80,7 +63,11 @@ func (d *Database) HandleQuery(ctx context.Context, queryStr string) string {
 		return d.handleDelQuery(ctx, query)
 	}
 
-	d.logger.Error("compute layer is incorrect", zap.Int64("tx", txID))
+	d.logger.Error(
+		"compute layer is incorrect",
+		zap.Int("command_id", query.CommandID()),
+	)
+
 	return "[error] internal configuration error"
 }
 
@@ -96,7 +83,9 @@ func (d *Database) handleSetQuery(ctx context.Context, query compute.Query) stri
 func (d *Database) handleGetQuery(ctx context.Context, query compute.Query) string {
 	arguments := query.Arguments()
 	value, err := d.storageLayer.Get(ctx, arguments[0])
-	if err != nil {
+	if err == storage.ErrorNotFound {
+		return "[not found]"
+	} else if err != nil {
 		return fmt.Sprintf("[error] %s", err.Error())
 	}
 

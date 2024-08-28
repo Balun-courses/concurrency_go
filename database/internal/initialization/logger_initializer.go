@@ -2,28 +2,23 @@ package initialization
 
 import (
 	"errors"
+
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
 	"spider/internal/configuration"
 )
 
 const (
-	DebugLevel = "debug"
-	InfoLevel  = "info"
-	WarnLevel  = "warn"
-	ErrorLevel = "error"
+	debugLevel = "debug"
+	infoLevel  = "info"
+	warnLevel  = "warn"
+	errorLevel = "error"
 )
-
-var supportedLoggingLevels = map[string]zapcore.Level{
-	DebugLevel: zapcore.DebugLevel,
-	InfoLevel:  zapcore.InfoLevel,
-	WarnLevel:  zapcore.WarnLevel,
-	ErrorLevel: zapcore.ErrorLevel,
-}
 
 const defaultEncoding = "json"
 const defaultLevel = zapcore.InfoLevel
-const defaultOutputPath = "output.log"
+const defaultOutputPath = "spider.log"
 
 func CreateLogger(cfg *configuration.LoggingConfig) (*zap.Logger, error) {
 	level := defaultLevel
@@ -31,6 +26,13 @@ func CreateLogger(cfg *configuration.LoggingConfig) (*zap.Logger, error) {
 
 	if cfg != nil {
 		if cfg.Level != "" {
+			supportedLoggingLevels := map[string]zapcore.Level{
+				debugLevel: zapcore.DebugLevel,
+				infoLevel:  zapcore.InfoLevel,
+				warnLevel:  zapcore.WarnLevel,
+				errorLevel: zapcore.ErrorLevel,
+			}
+
 			var found bool
 			if level, found = supportedLoggingLevels[cfg.Level]; !found {
 				return nil, errors.New("logging level is incorrect")
