@@ -1,6 +1,6 @@
 package wal
 
-import "spider/internal/tools"
+import "spider/internal/concurrency"
 
 type LogData struct {
 	LSN       int64
@@ -10,7 +10,7 @@ type LogData struct {
 
 type Log struct {
 	data         LogData
-	writePromise tools.Promise[error]
+	writePromise concurrency.Promise[error]
 }
 
 func NewLog(lsn int64, commandID int, args []string) Log {
@@ -20,7 +20,7 @@ func NewLog(lsn int64, commandID int, args []string) Log {
 			CommandID: commandID,
 			Arguments: args,
 		},
-		writePromise: tools.NewPromise[error](),
+		writePromise: concurrency.NewPromise[error](),
 	}
 }
 
@@ -44,6 +44,6 @@ func (l *Log) SetResult(err error) {
 	l.writePromise.Set(err)
 }
 
-func (l *Log) Result() tools.Future[error] {
+func (l *Log) Result() concurrency.Future[error] {
 	return l.writePromise.GetFuture()
 }

@@ -33,6 +33,7 @@ func TestCreateReplica(t *testing.T) {
 		"create replica without wal config": {
 			replicaCfg:     &configuration.ReplicationConfig{},
 			logger:         zap.NewNop(),
+			expectedErr:    errors.New("replication without wal"),
 			expectedNilObj: true,
 		},
 		"create replica with empty config fields": {
@@ -49,14 +50,35 @@ func TestCreateReplica(t *testing.T) {
 			expectedErr:    errors.New("replica type is incorrect"),
 			expectedNilObj: true,
 		},
-		"create replica with config fields": {
+		"create replica with incorrect master address": {
+			replicaCfg:     &configuration.ReplicationConfig{ReplicaType: masterType},
+			walCfg:         &configuration.WALConfig{},
+			logger:         zap.NewNop(),
+			expectedErr:    errors.New("master address is incorrect"),
+			expectedNilObj: true,
+		},
+		"create master with config fields": {
 			replicaCfg: &configuration.ReplicationConfig{
-				ReplicaType:   masterType,
+				ReplicaType:       masterType,
+				MasterAddress:     "localhost:9090",
+				SyncInterval:      time.Second * 10,
+				MaxReplicasNumber: 10,
+			},
+			walCfg: &configuration.WALConfig{
+				DataDirectory:  "./temp",
+				MaxSegmentSize: "16MB",
+			},
+			logger: zap.NewNop(),
+		},
+		"create slave with config fields": {
+			replicaCfg: &configuration.ReplicationConfig{
+				ReplicaType:   slaveType,
 				MasterAddress: "localhost:9090",
 				SyncInterval:  time.Second * 10,
 			},
 			walCfg: &configuration.WALConfig{
-				DataDirectory: "./temp",
+				DataDirectory:  "./temp",
+				MaxSegmentSize: "16MB",
 			},
 			logger: zap.NewNop(),
 		},

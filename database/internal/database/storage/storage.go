@@ -6,9 +6,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"spider/internal/concurrency"
 	"spider/internal/database/compute"
 	"spider/internal/database/storage/wal"
-	"spider/internal/tools"
 )
 
 var (
@@ -24,14 +24,12 @@ type Engine interface {
 
 type WAL interface {
 	Recover() ([]wal.LogData, error)
-	Set(context.Context, string, string) tools.FutureError
-	Del(context.Context, string) tools.FutureError
-	Shutdown()
+	Set(context.Context, string, string) concurrency.FutureError
+	Del(context.Context, string) concurrency.FutureError
 }
 
 type Replica interface {
 	IsMaster() bool
-	Shutdown()
 }
 
 type Storage struct {

@@ -12,8 +12,7 @@ import (
 )
 
 type TCPServer interface {
-	Start(context.Context, func(context.Context, []byte) []byte)
-	Shutdown()
+	HandleQueries(context.Context, func(context.Context, []byte) []byte)
 }
 
 type Master struct {
@@ -39,7 +38,7 @@ func NewMaster(server TCPServer, walDirectory string, logger *zap.Logger) (*Mast
 }
 
 func (m *Master) Start(ctx context.Context) {
-	m.server.Start(ctx, func(ctx context.Context, requestData []byte) []byte {
+	m.server.HandleQueries(ctx, func(ctx context.Context, requestData []byte) []byte {
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -58,10 +57,6 @@ func (m *Master) Start(ctx context.Context) {
 
 		return responseData
 	})
-}
-
-func (m *Master) Shutdown() {
-	m.server.Shutdown()
 }
 
 func (m *Master) IsMaster() bool {

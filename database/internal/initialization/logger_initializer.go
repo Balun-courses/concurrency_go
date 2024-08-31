@@ -16,9 +16,11 @@ const (
 	errorLevel = "error"
 )
 
-const defaultEncoding = "json"
-const defaultLevel = zapcore.InfoLevel
-const defaultOutputPath = "spider.log"
+const (
+	defaultEncoding   = "json"
+	defaultLevel      = zapcore.InfoLevel
+	defaultOutputPath = "spider.log"
+)
 
 func CreateLogger(cfg *configuration.LoggingConfig) (*zap.Logger, error) {
 	level := defaultLevel

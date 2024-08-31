@@ -30,9 +30,10 @@ type WALConfig struct {
 }
 
 type ReplicationConfig struct {
-	ReplicaType   string        `yaml:"replica_type"`
-	MasterAddress string        `yaml:"master_address"`
-	SyncInterval  time.Duration `yaml:"sync_interval"`
+	ReplicaType       string        `yaml:"replica_type"`
+	MasterAddress     string        `yaml:"master_address"`
+	SyncInterval      time.Duration `yaml:"sync_interval"`
+	MaxReplicasNumber int           `yaml:"max_replicas_number"`
 }
 
 type NetworkConfig struct {

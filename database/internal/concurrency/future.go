@@ -1,4 +1,4 @@
-package tools
+package concurrency
 
 type FutureError = Future[error]
 

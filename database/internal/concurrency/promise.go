@@ -1,4 +1,4 @@
-package tools
+package concurrency
 
 type Promise[T any] struct {
 	result   chan T
@@ -23,5 +23,5 @@ func (p *Promise[T]) Set(value T) {
 }
 
 func (p *Promise[T]) GetFuture() Future[T] {
-	return NewFuture[T](p.result)
+	return NewFuture(p.result)
 }

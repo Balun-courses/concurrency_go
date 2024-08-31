@@ -9,13 +9,18 @@ import (
 	"spider/internal/configuration"
 	"spider/internal/database/storage/replication"
 	"spider/internal/network"
+	"spider/internal/size"
 )
 
-const masterType = "master"
-const slaveType = "slave"
+const (
+	masterType = "master"
+	slaveType  = "slave"
+)
 
-const defaultReplicationMasterAddress = "localhost:3232"
-const defaultReplicationSyncInterval = time.Second
+const (
+	defaultReplicationSyncInterval = time.Second
+	defaultMaxReplicasNumber       = 5
+)
 
 func CreateReplica(
 	replicationCfg *configuration.ReplicationConfig,
@@ -39,13 +44,14 @@ func CreateReplica(
 		return nil, errors.New("replica type is incorrect")
 	}
 
-	masterAddress := defaultReplicationMasterAddress
-	syncInterval := defaultReplicationSyncInterval
-	walDirectory := defaultWALDataDirectory // TODO
-
-	if replicationCfg.MasterAddress != "" {
-		masterAddress = replicationCfg.MasterAddress
+	if replicationCfg.MasterAddress == "" {
+		return nil, errors.New("master address is incorrect")
 	}
+
+	maxMessageSize := defaultMaxSegmentSize
+	masterAddress := replicationCfg.MasterAddress
+	syncInterval := defaultReplicationSyncInterval
+	walDirectory := defaultWALDataDirectory
 
 	if replicationCfg.SyncInterval != 0 {
 		syncInterval = replicationCfg.SyncInterval
@@ -55,23 +61,37 @@ func CreateReplica(
 		walDirectory = walCfg.DataDirectory
 	}
 
-	const maxReplicasNumber = 5
-	const maxMessageSize = 16 << 20
-	idleTimeout := syncInterval * 3
+	if walCfg.MaxSegmentSize != "" {
+		size, _ := size.ParseSize(walCfg.MaxSegmentSize)
+		maxMessageSize = size
+	}
 
+	idleTimeout := syncInterval * 3
 	if replicationCfg.ReplicaType == masterType {
-		server, err := network.NewTCPServer(masterAddress, maxReplicasNumber, maxMessageSize, idleTimeout, logger)
+		maxReplicasNumber := defaultMaxReplicasNumber
+		if replicationCfg.MaxReplicasNumber != 0 {
+			maxReplicasNumber = replicationCfg.MaxReplicasNumber
+		}
+
+		var options []network.TCPServerOption
+		options = append(options, network.WithServerIdleTimeout(idleTimeout))
+		options = append(options, network.WithServerBufferSize(uint(maxMessageSize)))
+		options = append(options, network.WithServerMaxConnectionsNumber(uint(maxReplicasNumber)))
+		server, err := network.NewTCPServer(masterAddress, logger, options...)
 		if err != nil {
 			return nil, err
 		}
 
 		return replication.NewMaster(server, walDirectory, logger)
 	} else {
-		client, err := network.NewTCPClient(masterAddress, maxMessageSize, idleTimeout)
+		var options []network.TCPClientOption
+		options = append(options, network.WithClientIdleTimeout(idleTimeout))
+		options = append(options, network.WithClientBufferSize(uint(maxMessageSize)))
+		client, err := network.NewTCPClient(masterAddress, options...)
 		if err != nil {
 			return nil, err
 		}
 
-		return replication.NewSlave(client, syncInterval, logger)
+		return replication.NewSlave(client, walDirectory, syncInterval, logger)
 	}
 }

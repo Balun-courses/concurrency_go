@@ -4,54 +4,56 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"go.uber.org/zap"
 	"io"
 	"net"
-	"spider/internal/tools"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
+
+	"spider/internal/concurrency"
 )
 
 type TCPHandler = func(context.Context, []byte) []byte
 
 type TCPServer struct {
-	address     string
-	semaphore   tools.Semaphore
-	idleTimeout time.Duration
-	messageSize int
-	logger      *zap.Logger
+	listener  net.Listener
+	semaphore concurrency.Semaphore
+
+	idleTimeout    time.Duration
+	bufferSize     int
+	maxConnections int
+
+	logger *zap.Logger
 }
 
-func NewTCPServer(
-	address string,
-	maxConnectionsNumber int,
-	maxMessageSize int,
-	idleTimeout time.Duration,
-	logger *zap.Logger,
-) (*TCPServer, error) {
+func NewTCPServer(address string, logger *zap.Logger, options ...TCPServerOption) (*TCPServer, error) {
 	if logger == nil {
 		return nil, errors.New("logger is invalid")
 	}
 
-	if maxConnectionsNumber <= 0 {
-		return nil, errors.New("invalid number of max connections")
+	listener, err := net.Listen("tcp", address)
+	if err != nil {
+		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
-	return &TCPServer{
-		address:     address,
-		semaphore:   tools.NewSemaphore(maxConnectionsNumber),
-		idleTimeout: idleTimeout,
-		messageSize: maxMessageSize,
-		logger:      logger,
-	}, nil
+	server := &TCPServer{
+		listener: listener,
+		logger:   logger,
+	}
+
+	for _, option := range options {
+		option(server)
+	}
+
+	if server.maxConnections != 0 {
+		server.semaphore = concurrency.NewSemaphore(server.maxConnections)
+	}
+
+	return server, nil
 }
 
-func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) error {
-	listener, err := net.Listen("tcp", s.address)
-	if err != nil {
-		return fmt.Errorf("failed to listen: %w", err)
-	}
-
+func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) {
 	var wg sync.WaitGroup
 	wg.Add(2)
 
@@ -59,7 +61,7 @@ func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) error
 		defer wg.Done()
 
 		for {
-			connection, err := listener.Accept()
+			connection, err := s.listener.Accept()
 			if err != nil {
 				if errors.Is(err, net.ErrClosed) {
 					return
@@ -70,9 +72,8 @@ func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) error
 			}
 
 			wg.Add(1)
+			s.semaphore.Acquire()
 			go func(connection net.Conn) {
-				s.semaphore.Acquire()
-
 				defer func() {
 					s.semaphore.Release()
 					wg.Done()
@@ -87,30 +88,39 @@ func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) error
 		defer wg.Done()
 
 		<-ctx.Done()
-		if err := listener.Close(); err != nil {
-			s.logger.Warn("failed to close listener", zap.Error(err))
-		}
+		s.listener.Close()
 	}()
 
 	wg.Wait()
-	return nil
 }
 
 func (s *TCPServer) handleConnection(ctx context.Context, connection net.Conn, handler TCPHandler) {
-	request := make([]byte, s.messageSize)
+	defer func() {
+		if v := recover(); v != nil {
+			s.logger.Error("captured panic", zap.Any("panic", v))
+		}
+
+		if err := connection.Close(); err != nil {
+			s.logger.Warn("failed to close connection", zap.Error(err))
+		}
+	}()
+
+	request := make([]byte, s.bufferSize)
 
 	for {
-		if err := connection.SetDeadline(time.Now().Add(s.idleTimeout)); err != nil {
-			s.logger.Warn("failed to set read deadline", zap.Error(err))
-			break
+		if s.idleTimeout != 0 {
+			if err := connection.SetDeadline(time.Now().Add(s.idleTimeout)); err != nil {
+				s.logger.Warn("failed to set read deadline", zap.Error(err))
+				break
+			}
 		}
 
 		count, err := connection.Read(request)
-		if err != nil {
-			if err != io.EOF {
-				s.logger.Warn("failed to read", zap.Error(err))
-			}
-
+		if err != nil && err != io.EOF {
+			s.logger.Warn("failed to read", zap.Error(err))
+			break
+		} else if count == s.bufferSize {
+			s.logger.Warn("small buffer size")
 			break
 		}
 
@@ -119,9 +129,5 @@ func (s *TCPServer) handleConnection(ctx context.Context, connection net.Conn, h
 			s.logger.Warn("failed to write", zap.Error(err))
 			break
 		}
-	}
-
-	if err := connection.Close(); err != nil {
-		s.logger.Warn("failed to close connection", zap.Error(err))
 	}
 }

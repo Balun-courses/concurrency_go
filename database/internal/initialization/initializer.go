@@ -92,7 +92,6 @@ func (i *Initializer) StartDatabase(ctx context.Context) error {
 		options = append(options, storage.WithReplicationStream(i.slave.ReplicationStream()))
 	}
 
-	// TODO: need to start WAL and replication
 	storage, err := storage.NewStorage(i.engine, i.logger, options...)
 	if err != nil {
 		return err
@@ -104,17 +103,34 @@ func (i *Initializer) StartDatabase(ctx context.Context) error {
 	}
 
 	group, groupCtx := errgroup.WithContext(ctx)
+	if i.wal != nil {
+		if i.slave != nil {
+			group.Go(func() error {
+				i.slave.Start(groupCtx)
+				return nil
+			})
+		} else if i.master != nil {
+			group.Go(func() error {
+				i.wal.Start(groupCtx)
+				return nil
+			})
+		}
+	}
+
 	if i.master != nil {
 		group.Go(func() error {
-			return i.master.HandleSynchronizations(groupCtx)
+			i.master.Start(groupCtx)
+			return nil
 		})
 	}
 
 	group.Go(func() error {
-		return i.server.HandleQueries(groupCtx, func(ctx context.Context, query []byte) []byte {
+		i.server.HandleQueries(groupCtx, func(ctx context.Context, query []byte) []byte {
 			response := database.HandleQuery(ctx, string(query))
 			return []byte(response)
 		})
+
+		return nil
 	})
 
 	return group.Wait()

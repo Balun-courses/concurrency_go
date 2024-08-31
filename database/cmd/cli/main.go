@@ -12,7 +12,7 @@ import (
 	"go.uber.org/zap"
 
 	"spider/internal/network"
-	"spider/internal/tools"
+	"spider/internal/size"
 )
 
 func main() {
@@ -22,13 +22,17 @@ func main() {
 	flag.Parse()
 
 	logger, _ := zap.NewProduction()
-	maxMessageSize, err := tools.ParseSize(*maxMessageSizeStr)
+	maxMessageSize, err := size.ParseSize(*maxMessageSizeStr)
 	if err != nil {
 		logger.Fatal("failed to parse max message size", zap.Error(err))
 	}
 
+	var options []network.TCPClientOption
+	options = append(options, network.WithClientIdleTimeout(*idleTimeout))
+	options = append(options, network.WithClientBufferSize(uint(maxMessageSize)))
+
 	reader := bufio.NewReader(os.Stdin)
-	client, err := network.NewTCPClient(*address, maxMessageSize, *idleTimeout)
+	client, err := network.NewTCPClient(*address, options...)
 	if err != nil {
 		logger.Fatal("failed to connect with server", zap.Error(err))
 	}

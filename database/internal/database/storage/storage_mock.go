@@ -7,9 +7,10 @@ package storage
 import (
 	context "context"
 	reflect "reflect"
-	tools "spider/internal/tools"
 
 	gomock "github.com/golang/mock/gomock"
+
+	concurrency "spider/internal/concurrency"
 )
 
 // MockEngine is a mock of Engine interface.
@@ -98,10 +99,10 @@ func (m *MockWAL) EXPECT() *MockWALMockRecorder {
 }
 
 // Del mocks base method.
-func (m *MockWAL) Del(arg0 context.Context, arg1 string) tools.FutureError {
+func (m *MockWAL) Del(arg0 context.Context, arg1 string) concurrency.FutureError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Del", arg0, arg1)
-	ret0, _ := ret[0].(tools.FutureError)
+	ret0, _ := ret[0].(concurrency.FutureError)
 	return ret0
 }
 
@@ -112,10 +113,10 @@ func (mr *MockWALMockRecorder) Del(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Set mocks base method.
-func (m *MockWAL) Set(arg0 context.Context, arg1, arg2 string) tools.FutureError {
+func (m *MockWAL) Set(arg0 context.Context, arg1, arg2 string) concurrency.FutureError {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Set", arg0, arg1, arg2)
-	ret0, _ := ret[0].(tools.FutureError)
+	ret0, _ := ret[0].(concurrency.FutureError)
 	return ret0
 }
 

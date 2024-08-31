@@ -21,6 +21,7 @@ replication:
   replica_type: "slave"
   master_address: "127.0.0.1:3232"
   sync_interval: "1s"
+  max_replicas_number: 10
 network:
   address: "127.0.0.1:3223"
   max_connections: 100
@@ -56,9 +57,10 @@ func TestLoad(t *testing.T) {
 					DataDirectory:        "/data/spider/wal",
 				},
 				Replication: &ReplicationConfig{
-					ReplicaType:   "slave",
-					MasterAddress: "127.0.0.1:3232",
-					SyncInterval:  time.Second,
+					ReplicaType:       "slave",
+					MasterAddress:     "127.0.0.1:3232",
+					SyncInterval:      time.Second,
+					MaxReplicasNumber: 10,
 				},
 				Network: &NetworkConfig{
 					Address:        "127.0.0.1:3223",

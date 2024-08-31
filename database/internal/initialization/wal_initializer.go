@@ -8,17 +8,19 @@ import (
 
 	"spider/internal/configuration"
 	"spider/internal/database/storage/wal"
-	"spider/internal/tools"
+	"spider/internal/size"
 )
 
-const defaultFlushingBatchSize = 100
-const defaultFlushingBatchTimeout = time.Millisecond * 10
-const defaultMaxSegmentSize = 10 << 20
-const defaultWALDataDirectory = "./data/spider/wal"
+const (
+	defaultFlushingBatchSize    = 100
+	defaultFlushingBatchTimeout = time.Millisecond * 10
+	defaultMaxSegmentSize       = 10 << 20
+	defaultWALDataDirectory     = "./data/spider/wal"
+)
 
 func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, error) {
 	if logger == nil {
-		return nil, errors.New("logger is incorrect")
+		return nil, errors.New("logger is invalid")
 	} else if cfg == nil {
 		return nil, nil
 	}
@@ -37,7 +39,7 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 	}
 
 	if cfg.MaxSegmentSize != "" {
-		size, err := tools.ParseSize(cfg.MaxSegmentSize)
+		size, err := size.ParseSize(cfg.MaxSegmentSize)
 		if err != nil {
 			return nil, errors.New("max segment size is incorrect")
 		}

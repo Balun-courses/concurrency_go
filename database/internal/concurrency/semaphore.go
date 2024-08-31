@@ -1,4 +1,4 @@
-package tools
+package concurrency
 
 type Semaphore struct {
 	tickets chan struct{}
@@ -11,15 +11,23 @@ func NewSemaphore(ticketsNumber int) Semaphore {
 }
 
 func (s *Semaphore) Acquire() {
+	if s == nil {
+		return
+	}
+
 	s.tickets <- struct{}{}
 }
 
 func (s *Semaphore) Release() {
+	if s == nil {
+		return
+	}
+
 	<-s.tickets
 }
 
-func (s *Semaphore) WithSemaphore(action func()) {
-	if action == nil {
+func (s *Semaphore) WithAcquire(action func()) {
+	if s == nil || action == nil {
 		return
 	}
 

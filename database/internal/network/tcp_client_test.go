@@ -1,91 +1,97 @@
 package network
 
 import (
-	"context"
-	"github.com/stretchr/testify/require"
+	"errors"
 	"net"
-	"reflect"
+	"syscall"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestTCPClient(t *testing.T) {
 	t.Parallel()
 
-	request := "hello server"
-	response := "hello client"
-
-	listener, err := net.Listen("tcp", ":10001")
+	const serverResponse = "hello client"
+	const serverAdress = "localhost:11111"
+	listener, err := net.Listen("tcp", serverAdress)
 	require.NoError(t, err)
 
 	go func() {
-		connection, err := listener.Accept()
-		if err != nil {
-			return
+		for {
+			connection, err := listener.Accept()
+			if err != nil {
+				return
+			}
+
+			_, err = connection.Read(make([]byte, 2048))
+			require.NoError(t, err)
+
+			_, err = connection.Write([]byte(serverResponse))
+			require.NoError(t, err)
 		}
-
-		buffer := make([]byte, 2048)
-		count, err := connection.Read(buffer)
-		require.NoError(t, err)
-		require.True(t, reflect.DeepEqual([]byte(request), buffer[:count]))
-
-		_, err = connection.Write([]byte(response))
-		require.NoError(t, err)
-
-		defer func() {
-			err = connection.Close()
-			require.NoError(t, err)
-			err = listener.Close()
-			require.NoError(t, err)
-		}()
 	}()
 
-	time.Sleep(100 * time.Millisecond)
+	tests := map[string]struct {
+		request string
+		client  func() *TCPClient
 
-	client, err := NewTCPClient("127.0.0.1:10001", 2048, time.Minute)
-	require.NoError(t, err)
+		expectedResponse string
+		expectedErr      error
+	}{
+		"client with incorrect server address": {
+			request: "hello server",
+			client: func() *TCPClient {
+				client, err := NewTCPClient("localhost:1010")
+				require.ErrorIs(t, err, syscall.ECONNREFUSED)
+				return client
+			},
+			expectedResponse: serverResponse,
+		},
+		"client with small max message size": {
+			request: "hello server",
+			client: func() *TCPClient {
+				client, err := NewTCPClient(serverAdress, WithClientBufferSize(5))
+				require.NoError(t, err)
+				return client
+			},
+			expectedErr: errors.New("small buffer size"),
+		},
+		"client with idle timeout": {
+			request: "hello server",
+			client: func() *TCPClient {
+				client, err := NewTCPClient(serverAdress, WithClientIdleTimeout(100*time.Millisecond))
+				require.NoError(t, err)
+				return client
+			},
+			expectedResponse: serverResponse,
+		},
+		"client without options": {
+			request: "hello server",
+			client: func() *TCPClient {
+				client, err := NewTCPClient(serverAdress)
+				require.NoError(t, err)
+				return client
+			},
+			expectedResponse: serverResponse,
+		},
+	}
 
-	buffer, err := client.Send([]byte(request))
-	require.NoError(t, err)
-	require.True(t, reflect.DeepEqual([]byte(response), buffer))
-}
+	for name, test := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
 
-func TestTCPIdleClientConnection(t *testing.T) {
-	t.Parallel()
+			client := test.client()
+			if client == nil {
+				return
+			}
 
-	request := "hello server"
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	listener, err := net.Listen("tcp", ":10002")
-	require.NoError(t, err)
-
-	go func() {
-		connection, err := listener.Accept()
-		if err != nil {
-			return
-		}
-
-		buffer := make([]byte, 2048)
-		count, err := connection.Read(buffer)
-		require.NoError(t, err)
-		require.True(t, reflect.DeepEqual([]byte(request), buffer[:count]))
-
-		<-ctx.Done()
-		defer func() {
-			err = connection.Close()
-			require.NoError(t, err)
-			err = listener.Close()
-			require.NoError(t, err)
-		}()
-	}()
-
-	time.Sleep(100 * time.Millisecond)
-
-	client, err := NewTCPClient("127.0.0.1:10002", 2048, time.Millisecond*50)
-	require.NoError(t, err)
-
-	_, err = client.Send([]byte(request))
-	require.Error(t, err)
+			response, err := client.Send([]byte(test.request))
+			assert.Equal(t, test.expectedErr, err)
+			assert.Equal(t, test.expectedResponse, string(response))
+			client.Close()
+		})
+	}
 }

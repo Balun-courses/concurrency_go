@@ -16,17 +16,16 @@ import (
 
 type TCPClient interface {
 	Send([]byte) ([]byte, error)
+	Close()
 }
 
 type Slave struct {
-	client          TCPClient
-	stream          chan []wal.LogData
+	client TCPClient
+	stream chan []wal.LogData
+
 	syncInterval    time.Duration
 	walDirectory    string
 	lastSegmentName string
-
-	closeCh     chan struct{}
-	closeDoneCh chan struct{}
 
 	logger *zap.Logger
 }
@@ -51,41 +50,38 @@ func NewSlave(
 	}
 
 	return &Slave{
-		client: client,
-		// stream:          stream, TODO: need to create stream
+		client:          client,
+		stream:          make(chan []wal.LogData),
 		syncInterval:    syncInterval,
 		walDirectory:    walDirectory,
 		lastSegmentName: segmentName,
-		closeCh:         make(chan struct{}),
-		closeDoneCh:     make(chan struct{}),
 		logger:          logger,
 	}, nil
 }
 
-func (s *Slave) Start(_ context.Context) {
-	go func() {
-		defer close(s.closeDoneCh)
+func (s *Slave) Start(ctx context.Context) {
+	ticker := time.NewTicker(s.syncInterval)
+	defer func() {
+		ticker.Stop()
+		s.client.Close()
+	}()
 
+	go func() {
 		for {
 			select {
-			case <-s.closeCh:
+			case <-ctx.Done():
 				return
 			default:
 			}
 
 			select {
-			case <-s.closeCh:
+			case <-ctx.Done():
 				return
-			case <-time.After(s.syncInterval):
+			case <-ticker.C:
 				s.synchronize()
 			}
 		}
 	}()
-}
-
-func (s *Slave) Shutdown() {
-	close(s.closeCh)
-	<-s.closeDoneCh
 }
 
 func (s *Slave) IsMaster() bool {
