@@ -6,15 +6,17 @@ func main() {
 	mutex := sync.Mutex{}
 	mutex.Lock()
 
-	wg := sync.WaitGroup{}
-	wg.Add(1)
+	/*
+		wg := sync.WaitGroup{}
+		wg.Add(1)
 
-	go func() {
-		defer wg.Done()
-		mutex.Unlock()
-	}()
+		go func() {
+			defer wg.Done()
+			mutex.Unlock()
+		}()
 
-	wg.Wait()
+		wg.Wait()
+	*/
 
 	mutex.Lock()
 	mutex.Unlock()

@@ -1,7 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"runtime"
+	"sync"
 	"sync/atomic"
 )
 
@@ -12,17 +14,13 @@ const (
 
 const retriesNumber = 3
 
-type SpinLock struct {
+type Mutex struct {
 	state atomic.Bool
 }
 
-func NewSpinLock() *SpinLock {
-	return &SpinLock{}
-}
-
-func (s *SpinLock) Lock() {
+func (m *Mutex) Lock() {
 	retries := retriesNumber
-	for !s.state.CompareAndSwap(unlocked, locked) {
+	for !m.state.CompareAndSwap(unlocked, locked) {
 		retries--
 		if retries == 0 {
 			runtime.Gosched()
@@ -31,6 +29,29 @@ func (s *SpinLock) Lock() {
 	}
 }
 
-func (s *SpinLock) Unlock() {
-	s.state.Store(unlocked)
+func (m *Mutex) Unlock() {
+	m.state.Store(unlocked)
+}
+
+const goroutinesNumber = 1000
+
+func main() {
+	var mutex Mutex
+	wg := sync.WaitGroup{}
+	wg.Add(goroutinesNumber)
+
+	value := 0
+	for i := 0; i < goroutinesNumber; i++ {
+		go func() {
+			defer wg.Done()
+
+			mutex.Lock()
+			value++
+			mutex.Unlock()
+		}()
+	}
+
+	wg.Wait()
+
+	fmt.Println(value)
 }

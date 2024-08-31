@@ -49,14 +49,14 @@ private:
 };
 
 template<typename MutexType>
-void Benchmark(int threads_count)
+void Benchmark(int threads_count, int iterations_count)
 {
     int counter = 0;
     MutexType mutex;
 
-    std::function<void()> thread_fn = [&counter, &mutex]
+    std::function<void()> thread_fn = [&counter, &mutex, iterations_count]
     {
-        for (int i = 0; i < 10; ++i) {
+        for (int i = 0; i < iterations_count; ++i) {
             mutex.Lock();
             ++counter;
             mutex.Unlock();
@@ -73,17 +73,21 @@ void Benchmark(int threads_count)
 
 int main()
 {   
+    const int threads_count = 2000;
+    const int iterations_count = 10;
+
     {
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        Benchmark<MutexImplicit>(2000);
+        Benchmark<MutexImplicit>(threads_count, iterations_count);
         std::chrono::steady_clock::time_point finish = std::chrono::steady_clock::now();
         std::cout << "MutexImplicit = " << std::chrono::duration_cast<std::chrono::milliseconds>(finish - start).count() << "[ms]" << std::endl;
     }
     {
         std::chrono::steady_clock::time_point start = std::chrono::steady_clock::now();
-        Benchmark<MutexExplicit>(2000);
+        Benchmark<MutexExplicit>(threads_count, iterations_count);
         std::chrono::steady_clock::time_point finish = std::chrono::steady_clock::now();
         std::cout << "MutexExplicit = " << std::chrono::duration_cast<std::chrono::milliseconds>(finish - start).count() << "[ms]" << std::endl;
     }
+
     return EXIT_SUCCESS;
 }
