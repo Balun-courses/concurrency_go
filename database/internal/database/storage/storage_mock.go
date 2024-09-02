@@ -7,10 +7,10 @@ package storage
 import (
 	context "context"
 	reflect "reflect"
+	concurrency "spider/internal/concurrency"
+	wal "spider/internal/database/storage/wal"
 
 	gomock "github.com/golang/mock/gomock"
-
-	concurrency "spider/internal/concurrency"
 )
 
 // MockEngine is a mock of Engine interface.
@@ -112,6 +112,21 @@ func (mr *MockWALMockRecorder) Del(arg0, arg1 interface{}) *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Del", reflect.TypeOf((*MockWAL)(nil).Del), arg0, arg1)
 }
 
+// Recover mocks base method.
+func (m *MockWAL) Recover() ([]wal.LogData, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Recover")
+	ret0, _ := ret[0].([]wal.LogData)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Recover indicates an expected call of Recover.
+func (mr *MockWALMockRecorder) Recover() *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Recover", reflect.TypeOf((*MockWAL)(nil).Recover))
+}
+
 // Set mocks base method.
 func (m *MockWAL) Set(arg0 context.Context, arg1, arg2 string) concurrency.FutureError {
 	m.ctrl.T.Helper()
@@ -124,30 +139,6 @@ func (m *MockWAL) Set(arg0 context.Context, arg1, arg2 string) concurrency.Futur
 func (mr *MockWALMockRecorder) Set(arg0, arg1, arg2 interface{}) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Set", reflect.TypeOf((*MockWAL)(nil).Set), arg0, arg1, arg2)
-}
-
-// Shutdown mocks base method.
-func (m *MockWAL) Shutdown() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Shutdown")
-}
-
-// Shutdown indicates an expected call of Shutdown.
-func (mr *MockWALMockRecorder) Shutdown() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockWAL)(nil).Shutdown))
-}
-
-// Start mocks base method.
-func (m *MockWAL) Start() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start")
-}
-
-// Start indicates an expected call of Start.
-func (mr *MockWALMockRecorder) Start() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockWAL)(nil).Start))
 }
 
 // MockReplica is a mock of Replica interface.
@@ -185,28 +176,4 @@ func (m *MockReplica) IsMaster() bool {
 func (mr *MockReplicaMockRecorder) IsMaster() *gomock.Call {
 	mr.mock.ctrl.T.Helper()
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "IsMaster", reflect.TypeOf((*MockReplica)(nil).IsMaster))
-}
-
-// Shutdown mocks base method.
-func (m *MockReplica) Shutdown() {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Shutdown")
-}
-
-// Shutdown indicates an expected call of Shutdown.
-func (mr *MockReplicaMockRecorder) Shutdown() *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Shutdown", reflect.TypeOf((*MockReplica)(nil).Shutdown))
-}
-
-// Start mocks base method.
-func (m *MockReplica) Start(arg0 context.Context) {
-	m.ctrl.T.Helper()
-	m.ctrl.Call(m, "Start", arg0)
-}
-
-// Start indicates an expected call of Start.
-func (mr *MockReplicaMockRecorder) Start(arg0 interface{}) *gomock.Call {
-	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Start", reflect.TypeOf((*MockReplica)(nil).Start), arg0)
 }

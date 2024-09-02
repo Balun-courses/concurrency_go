@@ -11,9 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
 
+	"spider/internal/concurrency"
 	"spider/internal/database/compute"
 	"spider/internal/database/storage/wal"
-	"spider/internal/tools"
 )
 
 // mockgen -source=storage.go -destination=storage_mock.go -package=storage
@@ -22,6 +22,10 @@ func TestNewStorage(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
+	writeAheadLog := NewMockWAL(ctrl)
+	writeAheadLog.EXPECT().
+		Recover().
+		Return(nil, nil)
 
 	tests := map[string]struct {
 		engine  Engine
@@ -45,16 +49,16 @@ func TestNewStorage(t *testing.T) {
 			logger:      zap.NewNop(),
 			expectedErr: nil,
 		},
-		"create engine with data stream": {
+		"create engine with replication stream": {
 			engine:      NewMockEngine(ctrl),
 			logger:      zap.NewNop(),
-			options:     []StorageOption{WithDataStream(make(<-chan []wal.LogData))},
+			options:     []StorageOption{WithReplicationStream(make(<-chan []wal.LogData))},
 			expectedErr: nil,
 		},
 		"create engine with wal": {
 			engine:      NewMockEngine(ctrl),
 			logger:      zap.NewNop(),
-			options:     []StorageOption{WithWAL(NewMockWAL(ctrl))},
+			options:     []StorageOption{WithWAL(writeAheadLog)},
 			expectedErr: nil,
 		},
 		"create engine with replica": {
@@ -101,7 +105,13 @@ func TestStorageSet(t *testing.T) {
 					Return(false)
 				return replica
 			},
-			wal:         func() WAL { return NewMockWAL(ctrl) },
+			wal: func() WAL {
+				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Recover().
+					Return(nil, nil)
+				return wal
+			},
 			expectedErr: ErrorMutableTX,
 		},
 		"set without wal": {
@@ -120,9 +130,12 @@ func TestStorageSet(t *testing.T) {
 			wal: func() WAL {
 				result := make(chan error, 1)
 				result <- errors.New("wal error")
-				future := tools.NewFuture(result)
+				future := concurrency.NewFuture(result)
 
 				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Recover().
+					Return(nil, nil)
 				wal.EXPECT().
 					Set(gomock.Any(), "key", "value").
 					Return(future)
@@ -141,9 +154,12 @@ func TestStorageSet(t *testing.T) {
 			wal: func() WAL {
 				result := make(chan error, 1)
 				result <- nil
-				future := tools.NewFuture(result)
+				future := concurrency.NewFuture(result)
 
 				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Recover().
+					Return(nil, nil)
 				wal.EXPECT().
 					Set(gomock.Any(), "key", "value").
 					Return(future)
@@ -191,7 +207,13 @@ func TestStorageDel(t *testing.T) {
 					Return(false)
 				return replica
 			},
-			wal:         func() WAL { return NewMockWAL(ctrl) },
+			wal: func() WAL {
+				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Recover().
+					Return(nil, nil)
+				return wal
+			},
 			expectedErr: ErrorMutableTX,
 		},
 		"del without wal": {
@@ -210,9 +232,12 @@ func TestStorageDel(t *testing.T) {
 			wal: func() WAL {
 				result := make(chan error, 1)
 				result <- errors.New("wal error")
-				future := tools.NewFuture(result)
+				future := concurrency.NewFuture(result)
 
 				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Recover().
+					Return(nil, nil)
 				wal.EXPECT().
 					Del(gomock.Any(), "key").
 					Return(future)
@@ -231,9 +256,12 @@ func TestStorageDel(t *testing.T) {
 			wal: func() WAL {
 				result := make(chan error, 1)
 				result <- nil
-				future := tools.NewFuture(result)
+				future := concurrency.NewFuture(result)
 
 				wal := NewMockWAL(ctrl)
+				wal.EXPECT().
+					Recover().
+					Return(nil, nil)
 				wal.EXPECT().
 					Del(gomock.Any(), "key").
 					Return(future)
@@ -318,7 +346,7 @@ func TestStorageWithDataStream(t *testing.T) {
 		Del(gomock.Any(), "key_2")
 
 	dataStream := make(chan []wal.LogData)
-	_, err := NewStorage(engine, zap.NewNop(), WithDataStream(dataStream))
+	_, err := NewStorage(engine, zap.NewNop(), WithReplicationStream(dataStream))
 	require.NoError(t, err)
 
 	dataStream <- []wal.LogData{

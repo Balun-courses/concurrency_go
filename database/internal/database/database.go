@@ -68,7 +68,7 @@ func (d *Database) HandleQuery(ctx context.Context, queryStr string) string {
 		zap.Int("command_id", query.CommandID()),
 	)
 
-	return "[error] internal configuration error"
+	return "[error] internal error"
 }
 
 func (d *Database) handleSetQuery(ctx context.Context, query compute.Query) string {

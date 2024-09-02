@@ -11,7 +11,7 @@ func NewSemaphore(ticketsNumber int) Semaphore {
 }
 
 func (s *Semaphore) Acquire() {
-	if s == nil {
+	if s == nil || s.tickets == nil {
 		return
 	}
 
@@ -19,7 +19,7 @@ func (s *Semaphore) Acquire() {
 }
 
 func (s *Semaphore) Release() {
-	if s == nil {
+	if s == nil || s.tickets == nil {
 		return
 	}
 

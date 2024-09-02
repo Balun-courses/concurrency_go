@@ -48,6 +48,8 @@ func NewTCPServer(address string, logger *zap.Logger, options ...TCPServerOption
 
 	if server.maxConnections != 0 {
 		server.semaphore = concurrency.NewSemaphore(server.maxConnections)
+	} else if server.bufferSize == 0 {
+		server.bufferSize = 4 << 10
 	}
 
 	return server, nil

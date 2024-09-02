@@ -53,7 +53,7 @@ func NewStorage(engine Engine, logger *zap.Logger, options ...StorageOption) (*S
 	storage := &Storage{
 		engine:    engine,
 		logger:    logger,
-		generator: NewIDGenerator(0), // TODO: need to update after recovering
+		generator: NewIDGenerator(0), // TODO: need to set last LSN after recovering
 	}
 
 	for _, option := range options {
