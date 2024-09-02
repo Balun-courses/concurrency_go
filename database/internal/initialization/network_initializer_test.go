@@ -22,15 +22,18 @@ func TestCreateNetwork(t *testing.T) {
 		expectedNilObj bool
 	}{
 		"create network without logger": {
-			expectedErr: errors.New("logger is invalid"),
+			expectedErr:    errors.New("logger is invalid"),
+			expectedNilObj: true,
 		},
 		"create network without config": {
 			logger:      zap.NewNop(),
 			expectedErr: nil,
 		},
 		"create network with empty config fields": {
-			logger:      zap.NewNop(),
-			cfg:         &configuration.NetworkConfig{},
+			logger: zap.NewNop(),
+			cfg: &configuration.NetworkConfig{
+				Address: "localhost:20002",
+			},
 			expectedErr: nil,
 		},
 		"create network with config fields": {
