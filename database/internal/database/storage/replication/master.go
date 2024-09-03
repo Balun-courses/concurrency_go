@@ -8,7 +8,7 @@ import (
 
 	"go.uber.org/zap"
 
-	"spider/internal/database/storage/wal"
+	"spider/internal/database/filesystem"
 )
 
 type TCPServer interface {
@@ -65,7 +65,7 @@ func (m *Master) IsMaster() bool {
 
 func (m *Master) synchronize(request Request) Response {
 	var response Response
-	segmentName, err := wal.SegmentUpperBound(m.walDirectory, request.LastSegmentName)
+	segmentName, err := filesystem.SegmentUpperBound(m.walDirectory, request.LastSegmentName)
 	if err != nil {
 		m.logger.Error("failed to find WAL segment", zap.Error(err))
 		return response

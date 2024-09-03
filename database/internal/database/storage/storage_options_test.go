@@ -12,7 +12,7 @@ import (
 func TestWithReplicationStream(t *testing.T) {
 	t.Parallel()
 
-	stream := make(<-chan []wal.LogData)
+	stream := make(<-chan []wal.Log)
 	option := WithReplicationStream(stream)
 
 	var storage Storage

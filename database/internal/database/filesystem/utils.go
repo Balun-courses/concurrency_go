@@ -1,4 +1,4 @@
-package wal
+package filesystem
 
 import (
 	"fmt"

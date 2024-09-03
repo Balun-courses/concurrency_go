@@ -6,9 +6,10 @@ import (
 
 	"go.uber.org/zap"
 
+	"spider/internal/common"
 	"spider/internal/configuration"
+	"spider/internal/database/filesystem"
 	"spider/internal/database/storage/wal"
-	"spider/internal/size"
 )
 
 const (
@@ -39,7 +40,7 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 	}
 
 	if cfg.MaxSegmentSize != "" {
-		size, err := size.ParseSize(cfg.MaxSegmentSize)
+		size, err := common.ParseSize(cfg.MaxSegmentSize)
 		if err != nil {
 			return nil, errors.New("max segment size is incorrect")
 		}
@@ -51,7 +52,17 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 		dataDirectory = cfg.DataDirectory
 	}
 
-	fsReader := wal.NewFSReader(dataDirectory, logger)
-	fsWriter := wal.NewFSWriter(dataDirectory, maxSegmentSize, logger)
-	return wal.NewWAL(fsWriter, fsReader, flushingBatchTimeout, flushingBatchSize, logger), nil
+	segmentsDirectory := filesystem.NewSegmentsDirectory(dataDirectory)
+	reader, err := wal.NewLogsReader(segmentsDirectory)
+	if err != nil {
+		return nil, err
+	}
+
+	segment := filesystem.NewSegment(dataDirectory, maxSegmentSize, logger)
+	writer, err := wal.NewLogsWriter(segment, logger)
+	if err != nil {
+		return nil, err
+	}
+
+	return wal.NewWAL(writer, reader, flushingBatchTimeout, flushingBatchSize), nil
 }

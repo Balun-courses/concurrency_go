@@ -4,7 +4,7 @@ import "spider/internal/database/storage/wal"
 
 type StorageOption func(*Storage)
 
-func WithReplicationStream(stream <-chan []wal.LogData) StorageOption {
+func WithReplicationStream(stream <-chan []wal.Log) StorageOption {
 	return func(storage *Storage) {
 		storage.stream = stream
 	}

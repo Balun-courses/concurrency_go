@@ -113,10 +113,10 @@ func (mr *MockWALMockRecorder) Del(arg0, arg1 interface{}) *gomock.Call {
 }
 
 // Recover mocks base method.
-func (m *MockWAL) Recover() ([]wal.LogData, error) {
+func (m *MockWAL) Recover() ([]wal.Log, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "Recover")
-	ret0, _ := ret[0].([]wal.LogData)
+	ret0, _ := ret[0].([]wal.Log)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }

@@ -11,6 +11,7 @@ import (
 
 	"go.uber.org/zap"
 
+	"spider/internal/database/filesystem"
 	"spider/internal/database/storage/wal"
 )
 
@@ -21,7 +22,7 @@ type TCPClient interface {
 
 type Slave struct {
 	client TCPClient
-	stream chan []wal.LogData
+	stream chan []wal.Log
 
 	syncInterval    time.Duration
 	walDirectory    string
@@ -44,14 +45,14 @@ func NewSlave(
 		return nil, errors.New("logger is invalid")
 	}
 
-	segmentName, err := wal.SegmentLast(walDirectory)
+	segmentName, err := filesystem.SegmentLast(walDirectory)
 	if err != nil {
 		logger.Error("failed to find last WAL segment", zap.Error(err))
 	}
 
 	return &Slave{
 		client:          client,
-		stream:          make(chan []wal.LogData),
+		stream:          make(chan []wal.Log),
 		syncInterval:    syncInterval,
 		walDirectory:    walDirectory,
 		lastSegmentName: segmentName,
@@ -88,7 +89,7 @@ func (s *Slave) IsMaster() bool {
 	return false
 }
 
-func (s *Slave) ReplicationStream() <-chan []wal.LogData {
+func (s *Slave) ReplicationStream() <-chan []wal.Log {
 	return s.stream
 }
 
@@ -149,7 +150,7 @@ func (s *Slave) saveWALSegment(segmentName string, segmentData []byte) error {
 }
 
 func (s *Slave) applyDataToEngine(segmentData []byte) error {
-	var logs []wal.LogData
+	var logs []wal.Log
 	buffer := bytes.NewBuffer(segmentData)
 	decoder := gob.NewDecoder(buffer)
 	if err := decoder.Decode(&logs); err != nil {

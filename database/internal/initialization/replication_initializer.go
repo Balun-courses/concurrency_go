@@ -6,10 +6,10 @@ import (
 
 	"go.uber.org/zap"
 
+	"spider/internal/common"
 	"spider/internal/configuration"
 	"spider/internal/database/storage/replication"
 	"spider/internal/network"
-	"spider/internal/size"
 )
 
 const (
@@ -62,7 +62,7 @@ func CreateReplica(
 	}
 
 	if walCfg.MaxSegmentSize != "" {
-		size, _ := size.ParseSize(walCfg.MaxSegmentSize)
+		size, _ := common.ParseSize(walCfg.MaxSegmentSize)
 		maxMessageSize = size
 	}
 

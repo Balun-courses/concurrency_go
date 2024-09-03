@@ -52,7 +52,7 @@ func TestNewStorage(t *testing.T) {
 		"create engine with replication stream": {
 			engine:      NewMockEngine(ctrl),
 			logger:      zap.NewNop(),
-			options:     []StorageOption{WithReplicationStream(make(<-chan []wal.LogData))},
+			options:     []StorageOption{WithReplicationStream(make(<-chan []wal.Log))},
 			expectedErr: nil,
 		},
 		"create engine with wal": {
@@ -335,7 +335,7 @@ func TestStorageGet(t *testing.T) {
 	}
 }
 
-func TestStorageWithDataStream(t *testing.T) {
+func TestStorageWithReplicationStream(t *testing.T) {
 	t.Parallel()
 
 	ctrl := gomock.NewController(t)
@@ -345,11 +345,11 @@ func TestStorageWithDataStream(t *testing.T) {
 	engine.EXPECT().
 		Del(gomock.Any(), "key_2")
 
-	dataStream := make(chan []wal.LogData)
-	_, err := NewStorage(engine, zap.NewNop(), WithReplicationStream(dataStream))
+	replicationStream := make(chan []wal.Log)
+	_, err := NewStorage(engine, zap.NewNop(), WithReplicationStream(replicationStream))
 	require.NoError(t, err)
 
-	dataStream <- []wal.LogData{
+	replicationStream <- []wal.Log{
 		{
 			LSN:       1,
 			CommandID: compute.SetCommandID,
@@ -362,6 +362,6 @@ func TestStorageWithDataStream(t *testing.T) {
 		},
 	}
 
-	close(dataStream)
+	close(replicationStream)
 	time.Sleep(100 * time.Millisecond) // TODO: need to fix time waiting
 }

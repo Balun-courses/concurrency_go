@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/zap"
+
+	"spider/internal/common"
 )
 
 func TestNewEngine(t *testing.T) {
@@ -82,7 +84,7 @@ func TestEngineSet(t *testing.T) {
 			t.Parallel()
 
 			const txID int64 = 1
-			ctx := context.WithValue(context.Background(), "tx", txID)
+			ctx := common.ContextWithTxID(context.Background(), txID)
 
 			test.engine.Set(ctx, test.key, test.value)
 			value, found := test.engine.Get(ctx, test.key)
@@ -123,7 +125,7 @@ func TestEngineDel(t *testing.T) {
 			t.Parallel()
 
 			const txID int64 = 1
-			ctx := context.WithValue(context.Background(), "tx", txID)
+			ctx := common.ContextWithTxID(context.Background(), txID)
 
 			test.engine.Del(ctx, test.key)
 			value, found := test.engine.Get(ctx, test.key)
@@ -164,7 +166,7 @@ func TestEngineGet(t *testing.T) {
 			t.Parallel()
 
 			const txID int64 = 1
-			ctx := context.WithValue(context.Background(), "tx", txID)
+			ctx := common.ContextWithTxID(context.Background(), txID)
 
 			value, found := test.engine.Get(ctx, test.key)
 			assert.False(t, found)

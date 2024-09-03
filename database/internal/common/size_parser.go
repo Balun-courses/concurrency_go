@@ -1,4 +1,4 @@
-package size
+package common
 
 import "errors"
 

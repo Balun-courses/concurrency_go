@@ -1,5 +1,7 @@
 package concurrency
 
+type PromiseError = Promise[error]
+
 type Promise[T any] struct {
 	result   chan T
 	promised bool

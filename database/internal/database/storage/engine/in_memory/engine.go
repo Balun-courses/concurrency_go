@@ -6,6 +6,8 @@ import (
 	"hash/fnv"
 
 	"go.uber.org/zap"
+
+	"spider/internal/common"
 )
 
 type Engine struct {
@@ -43,7 +45,7 @@ func (e *Engine) Set(ctx context.Context, key, value string) {
 	partition := e.partitions[partitionIdx]
 	partition.Set(key, value)
 
-	txID := ctx.Value("tx").(int64)
+	txID := common.GetTxIDFromContext(ctx)
 	e.logger.Debug("successfull set query", zap.Int64("tx", txID))
 }
 
@@ -56,7 +58,7 @@ func (e *Engine) Get(ctx context.Context, key string) (string, bool) {
 	partition := e.partitions[partitionIdx]
 	value, found := partition.Get(key)
 
-	txID := ctx.Value("tx").(int64)
+	txID := common.GetTxIDFromContext(ctx)
 	e.logger.Debug("successfull get query", zap.Int64("tx", txID))
 	return value, found
 }
@@ -70,7 +72,7 @@ func (e *Engine) Del(ctx context.Context, key string) {
 	partition := e.partitions[partitionIdx]
 	partition.Del(key)
 
-	txID := ctx.Value("tx").(int64)
+	txID := common.GetTxIDFromContext(ctx)
 	e.logger.Debug("successfull del query", zap.Int64("tx", txID))
 }
 

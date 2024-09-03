@@ -5,50 +5,39 @@ import (
 	"sync"
 	"time"
 
-	"go.uber.org/zap"
-
+	"spider/internal/common"
 	"spider/internal/concurrency"
 	"spider/internal/database/compute"
 )
 
-type fsWriter interface {
-	WriteBatch([]Log)
+type logsWriter interface {
+	Write([]WriteRequest)
 }
 
-type fsReader interface {
-	ReadLogs() ([]LogData, error)
+type logsReader interface {
+	Read() ([]Log, error)
 }
 
 type WAL struct {
-	fsWriter     fsWriter
-	fsReader     fsReader
+	logsWriter logsWriter
+	logsReader logsReader
+
 	flushTimeout time.Duration
 	maxBatchSize int
 
+	batches chan []WriteRequest
 	mutex   sync.Mutex
-	batch   []Log
-	batches chan []Log
-
-	logger *zap.Logger
+	batch   []WriteRequest
 }
 
-func NewWAL(
-	fsWriter fsWriter,
-	fsReader fsReader,
-	flushTimeout time.Duration,
-	maxBatchSize int,
-	logger *zap.Logger,
-) *WAL {
-	wal := &WAL{
-		fsWriter:     fsWriter,
-		fsReader:     fsReader,
+func NewWAL(writer logsWriter, reader logsReader, flushTimeout time.Duration, maxBatchSize int) *WAL {
+	return &WAL{
+		logsWriter:   writer,
+		logsReader:   reader,
 		flushTimeout: flushTimeout,
 		maxBatchSize: maxBatchSize,
-		batches:      make(chan []Log, 1),
-		logger:       logger,
+		batches:      make(chan []WriteRequest, 1),
 	}
-
-	return wal
 }
 
 func (w *WAL) Start(ctx context.Context) {
@@ -69,12 +58,17 @@ func (w *WAL) Start(ctx context.Context) {
 				w.flushBatch()
 				return
 			case batch := <-w.batches:
-				w.fsWriter.WriteBatch(batch)
+				w.logsWriter.Write(batch)
+				ticker.Reset(w.flushTimeout)
 			case <-ticker.C:
 				w.flushBatch()
 			}
 		}
 	}()
+}
+
+func (w *WAL) Recover() ([]Log, error) {
+	return w.logsReader.Read()
 }
 
 func (w *WAL) Set(ctx context.Context, key, value string) concurrency.FutureError {
@@ -85,23 +79,9 @@ func (w *WAL) Del(ctx context.Context, key string) concurrency.FutureError {
 	return w.push(ctx, compute.DelCommandID, []string{key})
 }
 
-func (w *WAL) flushBatch() {
-	var batch []Log
-	concurrency.WithLock(&w.mutex, func() {
-		if len(w.batch) != 0 {
-			batch = w.batch
-			w.batch = nil
-		}
-	})
-
-	if len(batch) != 0 {
-		w.fsWriter.WriteBatch(batch)
-	}
-}
-
 func (w *WAL) push(ctx context.Context, commandID int, args []string) concurrency.FutureError {
-	txID := ctx.Value("tx").(int64)
-	record := NewLog(txID, commandID, args)
+	txID := common.GetTxIDFromContext(ctx)
+	record := NewWriteRequest(txID, commandID, args)
 
 	concurrency.WithLock(&w.mutex, func() {
 		w.batch = append(w.batch, record)
@@ -111,14 +91,17 @@ func (w *WAL) push(ctx context.Context, commandID int, args []string) concurrenc
 		}
 	})
 
-	return record.Result()
+	return record.FutureResponse()
 }
 
-func (w *WAL) Recover() ([]LogData, error) {
-	logs, err := w.fsReader.ReadLogs()
-	if err != nil {
-		return nil, err
-	}
+func (w *WAL) flushBatch() {
+	var batch []WriteRequest
+	concurrency.WithLock(&w.mutex, func() {
+		batch = w.batch
+		w.batch = nil
+	})
 
-	return logs, nil
+	if len(batch) != 0 {
+		w.logsWriter.Write(batch)
+	}
 }

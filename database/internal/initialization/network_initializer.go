@@ -5,9 +5,9 @@ import (
 
 	"go.uber.org/zap"
 
+	"spider/internal/common"
 	"spider/internal/configuration"
 	"spider/internal/network"
-	"spider/internal/size"
 )
 
 const defaultServerAddress = ":3223"
@@ -30,7 +30,7 @@ func CreateNetwork(cfg *configuration.NetworkConfig, logger *zap.Logger) (*netwo
 		}
 
 		if cfg.MaxMessageSize != "" {
-			size, err := size.ParseSize(cfg.MaxMessageSize)
+			size, err := common.ParseSize(cfg.MaxMessageSize)
 			if err != nil {
 				return nil, errors.New("incorrect max message size")
 			}

@@ -11,8 +11,8 @@ import (
 
 	"go.uber.org/zap"
 
+	"spider/internal/common"
 	"spider/internal/network"
-	"spider/internal/size"
 )
 
 func main() {
@@ -22,7 +22,7 @@ func main() {
 	flag.Parse()
 
 	logger, _ := zap.NewProduction()
-	maxMessageSize, err := size.ParseSize(*maxMessageSizeStr)
+	maxMessageSize, err := common.ParseSize(*maxMessageSizeStr)
 	if err != nil {
 		logger.Fatal("failed to parse max message size", zap.Error(err))
 	}
