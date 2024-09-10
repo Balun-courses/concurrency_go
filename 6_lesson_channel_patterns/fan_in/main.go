@@ -6,26 +6,26 @@ import (
 	"time"
 )
 
-func MergeChannels(channels ...<-chan int) <-chan int {
+func fanIn(channels ...chan int) chan int {
 	wg := sync.WaitGroup{}
 	wg.Add(len(channels))
 
-	result := make(chan int)
+	merged := make(chan int)
 	for _, channel := range channels {
-		go func(ch <-chan int) {
+		go func(channel chan int) {
 			defer wg.Done()
-			for value := range ch {
-				result <- value
+			for value := range channel {
+				merged <- value
 			}
 		}(channel)
 	}
 
 	go func() {
 		wg.Wait()
-		close(result)
+		close(merged)
 	}()
 
-	return result
+	return merged
 }
 
 func main() {
@@ -44,11 +44,11 @@ func main() {
 			ch1 <- i
 			ch2 <- i + 1
 			ch3 <- i + 2
-			time.Sleep(100 * time.Millisecond)
 		}
+		time.Sleep(100 * time.Millisecond)
 	}()
 
-	for value := range MergeChannels(ch1, ch2, ch3) {
+	for value := range fanIn(ch1, ch2, ch3) {
 		fmt.Println(value)
 	}
 }
