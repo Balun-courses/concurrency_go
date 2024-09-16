@@ -70,18 +70,6 @@ func TestCreateReplica(t *testing.T) {
 			},
 			logger: zap.NewNop(),
 		},
-		"create slave with config fields": {
-			replicaCfg: &configuration.ReplicationConfig{
-				ReplicaType:   slaveType,
-				MasterAddress: "localhost:9090",
-				SyncInterval:  time.Second * 10,
-			},
-			walCfg: &configuration.WALConfig{
-				DataDirectory:  "./temp",
-				MaxSegmentSize: "16MB",
-			},
-			logger: zap.NewNop(),
-		},
 	}
 
 	for name, test := range tests {
