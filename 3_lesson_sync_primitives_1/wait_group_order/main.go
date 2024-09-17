@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"sync"
 )
 
@@ -11,7 +11,7 @@ func main() {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			fmt.Println("test")
+			log.Println("test")
 		}()
 
 		wg.Wait()

@@ -5,6 +5,8 @@ import (
 	"sync"
 )
 
+// Need to show solution
+
 var value int
 
 func inc() {

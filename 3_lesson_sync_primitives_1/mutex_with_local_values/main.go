@@ -1,9 +1,11 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"sync"
 )
+
+// Need to show solution
 
 func main() {
 	mutex := sync.Mutex{}
@@ -21,7 +23,7 @@ func main() {
 				mutex.Unlock()
 			}
 
-			fmt.Println(value)
+			log.Println(value)
 		}()
 	}
 

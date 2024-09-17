@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"sync"
 )
 
@@ -14,7 +14,7 @@ func functionWithPanic() {
 func handle1() {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("recovered")
+			log.Println("recovered")
 		}
 	}()
 
@@ -27,7 +27,7 @@ func handle1() {
 func handle2() {
 	defer func() {
 		if err := recover(); err != nil {
-			fmt.Println("recovered")
+			log.Println("recovered")
 		}
 	}()
 
