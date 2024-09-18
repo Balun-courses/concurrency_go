@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -15,53 +16,34 @@ var (
 const timeout = time.Second
 
 func getter(key string) (any, error) {
-	// time.Sleep(1 * time.Microsecond)
+	// time.Sleep(2 * time.Second)
 	data, exists := postgresStore.Load(key)
 	if !exists {
 		return nil, errors.New("key not found")
 	}
+
 	return data, nil
 }
 
 func GetData(key string, getter func(key string) (any, error)) (any, error) {
-	valCh := make(chan any)
-	errCh := make(chan error)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	go func(key string) {
-		data, err := getter(key)
-		if err != nil {
-			errCh <- err
-			return
-		}
-		valCh <- data
-	}(key)
+	dataPostgres, err := getter(key)
+	if err != nil {
+		return nil, err
+	}
 
-	go func(key string) {
-		data, exists := cacheStore.Load(key)
-		if !exists {
-			errCh <- errors.New("key not found")
-			return
-		}
-		valCh <- data
-	}(key)
+	dataCache, exists := cacheStore.Load(key)
+	if !exists {
+		return nil, errors.New("key not found")
+	}
 
-	for {
-		select {
-		case value := <-valCh:
-			return value, nil
-		case err := <-errCh:
-			return nil, err
-		default:
-		}
-
-		select {
-		case <-time.After(timeout):
-			value := <-valCh
-			return value, nil
-		case err := <-errCh:
-			return nil, err
-		default:
-		}
+	select {
+	case <-ctx.Done():
+		return dataCache, nil
+	default:
+		return dataPostgres, nil
 	}
 }
 
