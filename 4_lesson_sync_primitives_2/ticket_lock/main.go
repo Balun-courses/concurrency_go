@@ -1,6 +1,9 @@
 package main
 
-import "sync/atomic"
+import (
+	"runtime"
+	"sync/atomic"
+)
 
 type TicketLock struct {
 	ownerTicket    atomic.Int64
@@ -14,6 +17,7 @@ func NewTicketLock() *TicketLock {
 func (t *TicketLock) Lock() {
 	ticket := t.nextFreeTicket.Add(1)
 	for t.ownerTicket.Load() != ticket-1 {
+		runtime.Gosched()
 	}
 }
 

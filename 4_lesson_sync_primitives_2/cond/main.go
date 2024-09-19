@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"sync"
 	"time"
 )
@@ -13,7 +13,7 @@ func subscribe(name string, data map[string]string, c *sync.Cond) {
 		c.Wait()
 	}
 
-	fmt.Printf("[%s] %s\n", name, data["key"])
+	log.Printf("[%s] %s\n", name, data["key"])
 
 	c.L.Unlock()
 }
@@ -25,7 +25,7 @@ func publish(name string, data map[string]string, c *sync.Cond) {
 	data["key"] = "value"
 	c.L.Unlock()
 
-	fmt.Printf("[%s] data publisher\n", name)
+	log.Printf("[%s] data publisher\n", name)
 	c.Broadcast()
 }
 

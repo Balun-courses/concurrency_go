@@ -16,7 +16,7 @@ type BrokenMutex struct {
 
 func (m *BrokenMutex) Lock() {
 	for m.state.Load() {
-		// iteration by iteration...
+		// итерация за итерацией...
 	}
 
 	m.state.Store(locked)

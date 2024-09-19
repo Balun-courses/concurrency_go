@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// go test -bench=. bench_test.go
+// go test -bench=. perf_test.go
 
 func BenchmarkMutexAdd(b *testing.B) {
 	var number int32
