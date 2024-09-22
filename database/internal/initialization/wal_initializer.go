@@ -49,6 +49,8 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 	}
 
 	if cfg.DataDirectory != "" {
+		// TODO: need to create a directory,
+		// if it is missing
 		dataDirectory = cfg.DataDirectory
 	}
 
@@ -58,11 +60,11 @@ func CreateWAL(cfg *configuration.WALConfig, logger *zap.Logger) (*wal.WAL, erro
 		return nil, err
 	}
 
-	segment := filesystem.NewSegment(dataDirectory, maxSegmentSize, logger)
+	segment := filesystem.NewSegment(dataDirectory, maxSegmentSize)
 	writer, err := wal.NewLogsWriter(segment, logger)
 	if err != nil {
 		return nil, err
 	}
 
-	return wal.NewWAL(writer, reader, flushingBatchTimeout, flushingBatchSize), nil
+	return wal.NewWAL(writer, reader, flushingBatchTimeout, flushingBatchSize)
 }

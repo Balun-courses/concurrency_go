@@ -48,7 +48,8 @@ func NewTCPServer(address string, logger *zap.Logger, options ...TCPServerOption
 
 	if server.maxConnections != 0 {
 		server.semaphore = concurrency.NewSemaphore(server.maxConnections)
-	} else if server.bufferSize == 0 {
+	}
+	if server.bufferSize == 0 {
 		server.bufferSize = 4 << 10
 	}
 
@@ -57,7 +58,7 @@ func NewTCPServer(address string, logger *zap.Logger, options ...TCPServerOption
 
 func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) {
 	var wg sync.WaitGroup
-	wg.Add(2)
+	wg.Add(1)
 
 	go func() {
 		defer wg.Done()
@@ -73,27 +74,18 @@ func (s *TCPServer) HandleQueries(ctx context.Context, handler TCPHandler) {
 				continue
 			}
 
-			wg.Add(1)
 			s.semaphore.Acquire()
 			go func(connection net.Conn) {
-				defer func() {
-					s.semaphore.Release()
-					wg.Done()
-				}()
-
+				defer s.semaphore.Release()
 				s.handleConnection(ctx, connection, handler)
 			}(connection)
 		}
 	}()
 
-	go func() {
-		defer wg.Done()
+	<-ctx.Done()
+	s.listener.Close()
 
-		<-ctx.Done()
-		s.listener.Close()
-	}()
-
-	wg.Wait()
+	wg.Wait() // don't wait for connections to complete
 }
 
 func (s *TCPServer) handleConnection(ctx context.Context, connection net.Conn, handler TCPHandler) {
@@ -107,11 +99,12 @@ func (s *TCPServer) handleConnection(ctx context.Context, connection net.Conn, h
 		}
 	}()
 
+	// reuse buffer for requests
 	request := make([]byte, s.bufferSize)
 
 	for {
 		if s.idleTimeout != 0 {
-			if err := connection.SetDeadline(time.Now().Add(s.idleTimeout)); err != nil {
+			if err := connection.SetReadDeadline(time.Now().Add(s.idleTimeout)); err != nil {
 				s.logger.Warn("failed to set read deadline", zap.Error(err))
 				break
 			}
@@ -119,16 +112,31 @@ func (s *TCPServer) handleConnection(ctx context.Context, connection net.Conn, h
 
 		count, err := connection.Read(request)
 		if err != nil && err != io.EOF {
-			s.logger.Warn("failed to read", zap.Error(err))
+			s.logger.Warn(
+				"failed to read data",
+				zap.String("address", connection.RemoteAddr().String()),
+				zap.Error(err),
+			)
 			break
 		} else if count == s.bufferSize {
-			s.logger.Warn("small buffer size")
+			s.logger.Warn("small buffer size", zap.Int("buffer_size", s.bufferSize))
 			break
+		}
+
+		if s.idleTimeout != 0 {
+			if err := connection.SetWriteDeadline(time.Now().Add(s.idleTimeout)); err != nil {
+				s.logger.Warn("failed to set read deadline", zap.Error(err))
+				break
+			}
 		}
 
 		response := handler(ctx, request[:count])
 		if _, err := connection.Write(response); err != nil {
-			s.logger.Warn("failed to write", zap.Error(err))
+			s.logger.Warn(
+				"failed to write data",
+				zap.String("address", connection.RemoteAddr().String()),
+				zap.Error(err),
+			)
 			break
 		}
 	}

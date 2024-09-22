@@ -1,3 +1,5 @@
 ./spider-cli
 ./spider-server
 ./spider.log
+
+./local_test/*

@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 var now = time.Now
@@ -16,11 +14,9 @@ type Segment struct {
 
 	segmentSize    int
 	maxSegmentSize int
-
-	logger *zap.Logger
 }
 
-func NewSegment(directory string, maxSegmentSize int, logger *zap.Logger) *Segment {
+func NewSegment(directory string, maxSegmentSize int) *Segment {
 	return &Segment{
 		directory:      directory,
 		maxSegmentSize: maxSegmentSize,
@@ -28,7 +24,7 @@ func NewSegment(directory string, maxSegmentSize int, logger *zap.Logger) *Segme
 }
 
 func (s *Segment) Write(data []byte) error {
-	if s.file == nil || s.segmentSize > s.maxSegmentSize {
+	if s.file == nil || s.segmentSize >= s.maxSegmentSize {
 		if err := s.rotateSegment(); err != nil {
 			return fmt.Errorf("failed to rotate segment file: %w", err)
 		}

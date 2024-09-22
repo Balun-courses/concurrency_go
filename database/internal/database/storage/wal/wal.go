@@ -2,6 +2,7 @@ package wal
 
 import (
 	"context"
+	"errors"
 	"sync"
 	"time"
 
@@ -30,21 +31,28 @@ type WAL struct {
 	batch   []WriteRequest
 }
 
-func NewWAL(writer logsWriter, reader logsReader, flushTimeout time.Duration, maxBatchSize int) *WAL {
+func NewWAL(writer logsWriter, reader logsReader, flushTimeout time.Duration, maxBatchSize int) (*WAL, error) {
+	if writer == nil {
+		return nil, errors.New("writer is invalid")
+	}
+	if reader == nil {
+		return nil, errors.New("reader is invalid")
+	}
+
 	return &WAL{
 		logsWriter:   writer,
 		logsReader:   reader,
 		flushTimeout: flushTimeout,
 		maxBatchSize: maxBatchSize,
 		batches:      make(chan []WriteRequest, 1),
-	}
+	}, nil
 }
 
 func (w *WAL) Start(ctx context.Context) {
-	ticker := time.NewTicker(w.flushTimeout)
-	defer ticker.Stop()
-
 	go func() {
+		ticker := time.NewTicker(w.flushTimeout)
+		defer ticker.Stop()
+
 		for {
 			select {
 			case <-ctx.Done():
@@ -68,6 +76,7 @@ func (w *WAL) Start(ctx context.Context) {
 }
 
 func (w *WAL) Recover() ([]Log, error) {
+	// TODO: need to compact WAL segments
 	return w.logsReader.Read()
 }
 

@@ -42,6 +42,8 @@ func CreateLogger(cfg *configuration.LoggingConfig) (*zap.Logger, error) {
 		}
 
 		if cfg.Output != "" {
+			// TODO: need to create a directory,
+			// if it is missing
 			output = cfg.Output
 		}
 	}

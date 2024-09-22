@@ -109,19 +109,19 @@ func (i *Initializer) StartDatabase(ctx context.Context) error {
 				i.slave.Start(groupCtx)
 				return nil
 			})
-		} else if i.master != nil {
+		} else {
 			group.Go(func() error {
 				i.wal.Start(groupCtx)
 				return nil
 			})
 		}
-	}
 
-	if i.master != nil {
-		group.Go(func() error {
-			i.master.Start(groupCtx)
-			return nil
-		})
+		if i.master != nil {
+			group.Go(func() error {
+				i.master.Start(groupCtx)
+				return nil
+			})
+		}
 	}
 
 	group.Go(func() error {
