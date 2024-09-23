@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"sync"
@@ -16,7 +15,6 @@ var (
 const timeout = time.Second
 
 func getter(key string) (any, error) {
-	// time.Sleep(2 * time.Second)
 	data, exists := postgresStore.Load(key)
 	if !exists {
 		return nil, errors.New("key not found")
@@ -26,24 +24,30 @@ func getter(key string) (any, error) {
 }
 
 func GetData(key string, getter func(key string) (any, error)) (any, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
+	valCh := make(chan any)
+	errCh := make(chan error)
 
-	dataPostgres, err := getter(key)
-	if err != nil {
-		return nil, err
-	}
-
-	dataCache, exists := cacheStore.Load(key)
-	if !exists {
-		return nil, errors.New("key not found")
-	}
+	go func() {
+		dataPostgres, err := getter(key)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		valCh <- dataPostgres
+	}()
 
 	select {
-	case <-ctx.Done():
-		return dataCache, nil
-	default:
+	case dataPostgres := <-valCh:
 		return dataPostgres, nil
+	case err := <-errCh:
+		return nil, err
+	case <-time.After(timeout):
+		dataCache, exists := cacheStore.Load(key)
+		if !exists {
+			return nil, errors.New("key not found")
+		}
+
+		return dataCache, nil
 	}
 }
 
