@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// Need to show solution
+
 func producer(ch chan<- int) {
 	for {
 		ch <- 1

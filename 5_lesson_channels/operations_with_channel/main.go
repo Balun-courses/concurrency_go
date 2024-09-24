@@ -58,7 +58,7 @@ func readFromNilChannel() {
 
 func rangeNilChannel() {
 	var ch chan int
-	for _ = range ch {
+	for range ch {
 
 	}
 }

@@ -12,7 +12,7 @@ func main() {
 		ch <- 1
 	}()
 	go func() {
-		ch <- 2
+		ch <- 1
 	}()
 
 	value += <-ch
