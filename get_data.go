@@ -12,7 +12,9 @@ var (
 	cacheStore    sync.Map
 )
 
-const timeout = time.Second
+const (
+	timeout = time.Second
+)
 
 func getter(key string) (any, error) {
 	data, exists := postgresStore.Load(key)
@@ -24,29 +26,37 @@ func getter(key string) (any, error) {
 }
 
 func GetData(key string, getter func(key string) (any, error)) (any, error) {
-	valCh := make(chan any)
-	errCh := make(chan error)
+	ch := make(chan struct {
+		val any
+		err error
+	})
 
 	go func() {
+		defer close(ch)
 		dataPostgres, err := getter(key)
 		if err != nil {
-			errCh <- err
+			ch <- struct {
+				val any
+				err error
+			}{err: err}
 			return
 		}
-		valCh <- dataPostgres
+		ch <- struct {
+			val any
+			err error
+		}{val: dataPostgres}
 	}()
 
 	select {
-	case dataPostgres := <-valCh:
-		return dataPostgres, nil
-	case err := <-errCh:
-		return nil, err
+	case dataPostgres := <-ch:
+		return dataPostgres.val, nil
+	case err := <-ch:
+		return nil, err.err
 	case <-time.After(timeout):
 		dataCache, exists := cacheStore.Load(key)
 		if !exists {
 			return nil, errors.New("key not found")
 		}
-
 		return dataCache, nil
 	}
 }
