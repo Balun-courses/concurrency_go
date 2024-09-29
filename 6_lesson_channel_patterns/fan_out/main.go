@@ -6,60 +6,57 @@ import (
 	"time"
 )
 
-func SplitChannel(inputCh <-chan int, n int) []chan int {
-	if n <= 0 {
-		n = 1
+func fanOut(channelMain chan int, amount int) []chan int {
+	if amount <= 0 {
+		amount = 1
 	}
 
-	outputCh := make([]chan int, n)
-	for i := 0; i < n; i++ {
-		outputCh[i] = make(chan int)
+	channelPull := make([]chan int, amount)
+	for i := 0; i < amount; i++ {
+		channelPull[i] = make(chan int)
 	}
 
 	go func() {
-		idx := 0
-		for value := range inputCh {
-			outputCh[idx] <- value
-			idx = (idx + 1) % n
-		}
+		defer func() {
+			for _, closed := range channelPull {
+				close(closed)
+			}
+		}()
 
-		for _, ch := range outputCh {
-			close(ch)
+		index := 0
+		for value := range channelMain {
+			channelPull[index] <- value
+			index = (index + 1) % amount
 		}
 	}()
 
-	return outputCh
+	return channelPull
 }
 
 func main() {
-	ch := make(chan int)
+	wg := sync.WaitGroup{}
+	amount := 2
+	wg.Add(amount)
+
+	channelMain := make(chan int)
+	channelPull := fanOut(channelMain, amount)
 
 	go func() {
-		defer close(ch)
+		defer close(channelMain)
 		for i := 0; i < 10; i++ {
-			ch <- i
+			channelMain <- i
 			time.Sleep(100 * time.Millisecond)
 		}
 	}()
 
-	channels := SplitChannel(ch, 2)
-
-	wg := sync.WaitGroup{}
-	wg.Add(2)
-
-	go func() {
-		defer wg.Done()
-		for value := range channels[0] {
-			fmt.Println("ch1: ", value)
-		}
-	}()
-
-	go func() {
-		defer wg.Done()
-		for value := range channels[1] {
-			fmt.Println("ch2: ", value)
-		}
-	}()
+	for index, channel := range channelPull {
+		go func(channel chan int, index int) {
+			defer wg.Done()
+			for value := range channel {
+				fmt.Printf("ch%d: %d\n", index+1, value)
+			}
+		}(channel, index)
+	}
 
 	wg.Wait()
 }
