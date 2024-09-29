@@ -6,7 +6,6 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"go.uber.org/zap"
@@ -127,29 +126,25 @@ func (s *Slave) handleResponse(response Response) {
 		s.logger.Error("failed to apply replication data", zap.Error(err))
 	}
 
-	if err := s.applyDataToEngine(response.SegmentData); err != nil {
-		s.logger.Error("failed to apply replication data", zap.Error(err))
+	if err := s.writeDataToStream(response.SegmentData); err != nil {
+		s.logger.Error("failed to write data to stream", zap.Error(err))
 	}
 
 	s.lastSegmentName = response.SegmentName
 }
 
 func (s *Slave) saveWALSegment(segmentName string, segmentData []byte) error {
-	flags := os.O_CREATE | os.O_WRONLY
 	filename := fmt.Sprintf("%s/%s", s.walDirectory, segmentName)
-	segment, err := os.OpenFile(filename, flags, 0644)
+	file, err := filesystem.CreateFile(filename)
 	if err != nil {
 		return fmt.Errorf("failed to create wal segment: %w", err)
 	}
 
-	if _, err = segment.Write(segmentData); err != nil {
-		return fmt.Errorf("failed to write data to segment: %w", err)
-	}
-
-	return segment.Sync()
+	_, err = filesystem.WriteFile(file, segmentData)
+	return err
 }
 
-func (s *Slave) applyDataToEngine(segmentData []byte) error {
+func (s *Slave) writeDataToStream(segmentData []byte) error {
 	var logs []wal.Log
 	buffer := bytes.NewBuffer(segmentData)
 	decoder := gob.NewDecoder(buffer)

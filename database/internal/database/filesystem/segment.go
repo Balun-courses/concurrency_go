@@ -30,24 +30,18 @@ func (s *Segment) Write(data []byte) error {
 		}
 	}
 
-	writtenBytes, err := s.file.Write(data)
+	writtenBytes, err := WriteToFile(s.file, data)
 	if err != nil {
-		return fmt.Errorf("failed to data to segment file: %w", err)
+		return fmt.Errorf("failed to write data to segment file: %w", err)
 	}
 
 	s.segmentSize += writtenBytes
-	if err = s.file.Sync(); err != nil {
-		return fmt.Errorf("failed to sync segment file: %w", err)
-	}
-
 	return nil
 }
 
 func (s *Segment) rotateSegment() error {
 	segmentName := fmt.Sprintf("%s/wal_%d.log", s.directory, now().UnixMilli())
-
-	flags := os.O_CREATE | os.O_WRONLY
-	file, err := os.OpenFile(segmentName, flags, 0644)
+	file, err := CreateFile(segmentName)
 	if err != nil {
 		return err
 	}

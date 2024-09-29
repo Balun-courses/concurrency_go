@@ -3,10 +3,9 @@ package filesystem
 import (
 	"fmt"
 	"os"
-	"sort"
 )
 
-func SegmentUpperBound(directory string, segmentName string) (string, error) {
+func SegmentNext(directory string, segmentName string) (string, error) {
 	files, err := os.ReadDir(directory)
 	if err != nil {
 		return "", fmt.Errorf("failed to scan WAL directory: %w", err)
@@ -21,9 +20,8 @@ func SegmentUpperBound(directory string, segmentName string) (string, error) {
 		filenames = append(filenames, file.Name())
 	}
 
-	sort.Strings(filenames)
 	idx := upperBound(filenames, segmentName)
-	if idx < len(filenames) {
+	if idx < len(filenames)-1 { // not last
 		return filenames[idx], nil
 	} else {
 		return "", nil
@@ -48,6 +46,29 @@ func SegmentLast(directory string) (string, error) {
 	}
 
 	return filename, nil
+}
+
+func CreateFile(filename string) (*os.File, error) {
+	flags := os.O_CREATE | os.O_WRONLY
+	file, err := os.OpenFile(filename, flags, 0644)
+	if err != nil {
+		return nil, err
+	}
+
+	return file, err
+}
+
+func WriteFile(file *os.File, data []byte) (int, error) {
+	writtenBytes, err := file.Write(data)
+	if err != nil {
+		return 0, err
+	}
+
+	if err = file.Sync(); err != nil {
+		return 0, err
+	}
+
+	return writtenBytes, nil
 }
 
 func upperBound(array []string, target string) int {
