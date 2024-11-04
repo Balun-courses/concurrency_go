@@ -34,7 +34,7 @@ func BenchmarkWithPool(b *testing.B) {
 	pool := NewPersonsPool()
 	for i := 0; i < b.N; i++ {
 		person := pool.Get()
-		person.name = "Ivan"
+		person.name = "Ivan" // Need to initialize
 		pool.Put(person)
 	}
 }

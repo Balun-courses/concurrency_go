@@ -49,10 +49,11 @@ func (l *Pool) Get() *Node {
 
 	node := l.list.pop()
 	if node == nil {
-		node = &Node{}
+		node = &Node{
+			Value: l.ctr(),
+		}
 	}
 
-	node.Value = l.ctr()
 	return node
 }
 
