@@ -2,6 +2,8 @@ package main
 
 import "sync"
 
+// go run -race main.go
+
 type Data struct {
 	X int
 	Y int
