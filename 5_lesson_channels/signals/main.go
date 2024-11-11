@@ -5,11 +5,11 @@ import (
 	"sync"
 )
 
-func notifier(signals chan<- struct{}) {
+func notifier(signals chan struct{}) {
 	signals <- struct{}{}
 }
 
-func subscriber(signals <-chan struct{}) {
+func subscriber(signals chan struct{}) {
 	<-signals
 	fmt.Println("signaled")
 }

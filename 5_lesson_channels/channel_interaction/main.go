@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+// Describe blocking
+
 func async(ch chan string) {
 	time.Sleep(2 * time.Second)
 	ch <- "async result"

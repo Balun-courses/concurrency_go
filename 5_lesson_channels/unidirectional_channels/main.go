@@ -13,6 +13,7 @@ func out(out <-chan int) {
 
 func main() {
 	var ch = make(chan int, 1)
+
 	in(ch)
 	out(ch)
 }

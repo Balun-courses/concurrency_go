@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"time"
 )
 
@@ -12,7 +13,7 @@ func main() {
 				fmt.Println(str)
 			}
 
-			fmt.Println("doWork exited")
+			log.Println("doWork exited")
 		}()
 	}
 

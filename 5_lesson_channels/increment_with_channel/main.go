@@ -7,7 +7,6 @@ import (
 func main() {
 	ch := make(chan int)
 
-	value := 0
 	go func() {
 		ch <- 1
 	}()
@@ -15,6 +14,7 @@ func main() {
 		ch <- 1
 	}()
 
+	value := 0
 	value += <-ch
 	value += <-ch
 

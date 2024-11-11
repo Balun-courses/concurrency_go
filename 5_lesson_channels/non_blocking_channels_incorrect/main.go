@@ -9,7 +9,7 @@ func tryToReadFromChannel(ch chan string) (string, bool) {
 	}
 }
 
-func tryToWriteFromChannel(ch chan string, value string) bool {
+func tryToWriteToChannel(ch chan string, value string) bool {
 	if len(ch) < cap(ch) {
 		ch <- value
 		return true

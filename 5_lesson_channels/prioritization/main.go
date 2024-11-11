@@ -25,6 +25,7 @@ func main() {
 		select {
 		case value := <-ch1:
 			fmt.Println(value)
+			return
 		case value := <-ch2:
 			fmt.Println(value)
 		}

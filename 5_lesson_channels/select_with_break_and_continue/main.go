@@ -13,17 +13,17 @@ func main() {
 
 	for {
 		value := 0
-		found := true
+		opened := true
 
 		select {
-		case value, found = <-data:
+		case value, opened = <-data:
 			if value == 2 {
 				continue
 			} else if value == 3 {
 				break
 			}
 
-			if !found {
+			if !opened {
 				return
 			}
 		}

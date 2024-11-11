@@ -13,6 +13,20 @@ func producer(ch chan int) {
 }
 
 func consumer(ch chan int) {
+
+	/*
+		for {
+			select {
+			case value, opened := <-ch:
+				if !opened {
+					return
+				}
+
+				fmt.Println(value)
+			}
+		}
+	*/
+
 	for value := range ch { // syntax sugar
 		fmt.Println(value)
 	}

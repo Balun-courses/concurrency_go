@@ -15,6 +15,8 @@ func writeToClosedChannel() {
 	ch <- 20
 }
 
+// Descibe read after close
+
 func readFromChannel() {
 	ch := make(chan int, 2)
 	ch <- 10
@@ -72,6 +74,17 @@ func closeChannelAnyTimes() {
 	ch := make(chan int)
 	close(ch)
 	close(ch)
+}
+
+func compareChannels() {
+	ch1 := make(chan int)
+	ch2 := make(chan int)
+
+	equal1 := ch1 == ch2
+	equal2 := ch1 == ch1
+
+	fmt.Println(equal1)
+	fmt.Println(equal2)
 }
 
 func main() {

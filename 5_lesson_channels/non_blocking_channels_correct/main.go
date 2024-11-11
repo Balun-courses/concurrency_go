@@ -9,7 +9,7 @@ func tryToReadFromChannel(ch chan string) (string, bool) {
 	}
 }
 
-func tryToWriteFromChannel(ch chan string, value string) bool {
+func tryToWriteToChannel(ch chan string, value string) bool {
 	select {
 	case ch <- value:
 		return true
@@ -22,5 +22,6 @@ func tryToReadOrWrite(ch1 chan string, ch2 chan string) {
 	select {
 	case <-ch1:
 	case ch2 <- "test":
+	default:
 	}
 }
