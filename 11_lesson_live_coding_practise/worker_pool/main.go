@@ -2,36 +2,36 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 )
 
-type WorkerPool struct {
-	tasksCh     chan func()
+type TaskPool struct {
+	taskCh      chan func()
 	closeCh     chan struct{}
 	closeDoneCh chan struct{}
-
-	mutex sync.RWMutex
+	rwmutex     sync.RWMutex
 }
 
-func NewWorkerPool(workersNumber int) *WorkerPool {
-	wp := &WorkerPool{
-		tasksCh:     make(chan func(), workersNumber),
+func NewTaskPool(taskNumber int) *TaskPool {
+	tp := &TaskPool{
+		taskCh:      make(chan func(), taskNumber),
 		closeCh:     make(chan struct{}),
 		closeDoneCh: make(chan struct{}),
 	}
 
-	go wp.run(workersNumber)
-	return wp
+	go tp.runTask(taskNumber)
+	return tp
 }
 
-func (wp *WorkerPool) run(workersNumber int) {
+func (tp *TaskPool) runTask(taskNumber int) {
 	wg := sync.WaitGroup{}
-	wg.Add(workersNumber)
+	wg.Add(taskNumber)
 
-	for i := 0; i < workersNumber; i++ {
+	for i := 0; i < taskNumber; i++ {
 		go func() {
 			defer wg.Done()
-			for task := range wp.tasksCh {
+			for task := range tp.taskCh {
 				task()
 			}
 		}()
@@ -39,40 +39,55 @@ func (wp *WorkerPool) run(workersNumber int) {
 
 	go func() {
 		wg.Wait()
-		close(wp.closeDoneCh)
+		close(tp.closeDoneCh)
 	}()
 }
 
-// AddTask add task to pool
-func (wp *WorkerPool) AddTask(task func()) error {
+func (tp *TaskPool) addTask(task func()) error {
 	if task == nil {
 		return errors.New("invalid argument")
 	}
 
-	wp.mutex.RLock()
-	defer wp.mutex.RUnlock()
+	tp.rwmutex.RLock()
+	defer tp.rwmutex.RUnlock()
 
 	select {
-	case <-wp.closeCh:
+	case <-tp.closeCh:
 		return errors.New("pool was closed")
 	default:
 	}
 
 	select {
-	case wp.tasksCh <- task:
+	case tp.taskCh <- task:
 		return nil
 	default:
 		return errors.New("buffer is full")
 	}
 }
 
-// Shutdown close pool and wait all the tasks
-func (wp *WorkerPool) Shutdown() {
-	close(wp.closeCh)
+func (tp *TaskPool) terminate() {
+	close(tp.closeCh)
 
-	wp.mutex.Lock()
-	close(wp.tasksCh)
-	wp.mutex.Unlock()
+	tp.rwmutex.Lock()
+	close(tp.taskCh)
+	tp.rwmutex.Unlock()
 
-	<-wp.closeDoneCh
+	<-tp.closeDoneCh
+}
+
+func main() {
+	taskNumber := 3
+	pool := NewTaskPool(taskNumber)
+
+	for i := 1; i <= taskNumber; i++ {
+		err := pool.addTask(func() {
+			fmt.Printf("task: %d completed\n", i)
+		})
+
+		if err != nil {
+			fmt.Println(err)
+		}
+	}
+
+	pool.terminate()
 }
