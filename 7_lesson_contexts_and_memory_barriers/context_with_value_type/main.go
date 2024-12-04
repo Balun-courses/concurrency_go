@@ -13,8 +13,8 @@ func main() {
 		fmt.Println("string =", ctx.Value("key").(string))
 	}
 	{
-		type key1 string
-		type key2 string
+		type key1 string // type definition, not type alias
+		type key2 string // type definition, not type alias
 		const k1 key1 = "key"
 		const k2 key2 = "key"
 

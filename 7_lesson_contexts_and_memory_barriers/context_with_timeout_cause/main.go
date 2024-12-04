@@ -9,7 +9,7 @@ import (
 
 func main() {
 	ctx, cancel := context.WithTimeoutCause(context.Background(), time.Second, errors.New("timeout"))
-	defer cancel()
+	defer cancel() // show difference
 
 	<-ctx.Done()
 

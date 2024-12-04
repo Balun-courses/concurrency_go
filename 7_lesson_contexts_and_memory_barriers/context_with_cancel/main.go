@@ -29,7 +29,7 @@ func main() {
 
 	ctx, cancel := context.WithCancel(context.Background())
 
-	result := make(chan struct{})
+	result := make(chan struct{}, 10)
 	for i := 0; i < 10; i++ {
 		go func(idx int) {
 			defer wg.Done()

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"time"
 )
 
 func main() {
@@ -25,11 +26,14 @@ func main() {
 	go func() {
 		err := server.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
-			log.Print(err.Error())
+			log.Print(err.Error()) // exit
 		}
 	}()
 
 	<-ctx.Done()
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
 		log.Print(err.Error())

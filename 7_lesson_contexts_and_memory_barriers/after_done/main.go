@@ -8,25 +8,21 @@ import (
 
 // context.AfterFunc
 
-func WithAfterFunc(ctx context.Context, action func()) (context.Context, context.CancelFunc) {
-	ctx, cancel := context.WithCancel(context.Background())
-
+func WithCtxAfterFunc(ctx context.Context, action func()) {
 	if action != nil {
 		go func() {
 			<-ctx.Done()
 			action()
 		}()
 	}
-
-	return ctx, cancel
 }
 
 func main() {
-	afterDone := func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	WithCtxAfterFunc(ctx, func() {
 		fmt.Println("after")
-	}
+	})
 
-	_, cancel := WithAfterFunc(context.Background(), afterDone)
 	cancel()
 
 	time.Sleep(100 * time.Millisecond)
