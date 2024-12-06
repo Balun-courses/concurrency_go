@@ -28,7 +28,7 @@ func main() {
 		fmt.Println(generator())
 	}
 
-	for number := range GenerateWithChannel(100, 200) {
+	/*for number := range GenerateWithChannel(100, 200) {
 		fmt.Println(number)
-	}
+	}*/
 }

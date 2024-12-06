@@ -4,14 +4,13 @@ import (
 	"errors"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
-	"unsafe"
 )
 
 type ErrGroup struct {
-	err    unsafe.Pointer
+	err    error
 	wg     sync.WaitGroup
+	once   sync.Once
 	doneCh chan struct{}
 }
 
@@ -23,10 +22,8 @@ func NewErrGroup() *ErrGroup {
 
 func (eg *ErrGroup) Go(task func() error) {
 	select {
-	case _, ok := <-eg.doneCh:
-		if !ok {
-			return
-		}
+	case <-eg.doneCh:
+		return
 	default:
 	}
 
@@ -39,10 +36,10 @@ func (eg *ErrGroup) Go(task func() error) {
 			return
 		default:
 			if err := task(); err != nil {
-				newPtr := unsafe.Pointer(&err)
-				if atomic.CompareAndSwapPointer(&eg.err, nil, newPtr) {
+				eg.once.Do(func() {
+					eg.err = err
 					close(eg.doneCh)
-				}
+				})
 			}
 		}
 	}()
@@ -50,11 +47,7 @@ func (eg *ErrGroup) Go(task func() error) {
 
 func (eg *ErrGroup) Wait() error {
 	eg.wg.Wait()
-	if err := atomic.LoadPointer(&eg.err); err != nil {
-		return *(*error)(err)
-	} else {
-		return nil
-	}
+	return eg.err
 }
 
 func main() {

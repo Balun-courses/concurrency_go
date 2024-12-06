@@ -10,7 +10,7 @@ import (
 )
 
 func main() {
-	interruptCh := make(chan os.Signal)
+	interruptCh := make(chan os.Signal, 1)
 	signal.Notify(interruptCh, syscall.SIGINT, syscall.SIGTERM)
 
 	wg := sync.WaitGroup{}

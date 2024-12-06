@@ -29,7 +29,7 @@ func NewPromise(task func() (interface{}, error)) *Promise {
 }
 
 func (p *Promise) Then(successCb func(interface{}), errCb func(error)) {
-	<-p.waitCh
+	<-p.waitCh // can be non-blocking
 	if p.err == nil {
 		successCb(p.value)
 	} else {

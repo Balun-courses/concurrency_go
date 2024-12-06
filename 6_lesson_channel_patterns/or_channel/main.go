@@ -29,7 +29,7 @@ func or(channels ...<-chan struct{}) <-chan struct{} {
 			case <-channels[0]:
 			case <-channels[1]:
 			case <-channels[2]:
-			case <-or(append(channels[3:])...):
+			case <-or(channels[3:]...):
 			}
 		}
 	}()

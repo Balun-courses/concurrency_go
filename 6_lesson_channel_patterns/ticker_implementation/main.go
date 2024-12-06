@@ -14,7 +14,7 @@ type Ticker struct {
 
 func NewTicker(interval time.Duration) *Ticker {
 	ticker := &Ticker{
-		C:        make(chan struct{}),
+		C:        make(chan struct{}, 1),
 		interval: int64(interval),
 	}
 
@@ -34,6 +34,7 @@ func (t *Ticker) Stop() {
 }
 
 func (t *Ticker) Reset(interval time.Duration) {
+	// can discard previous tick
 	atomic.StoreInt64(&t.interval, int64(interval))
 }
 
@@ -41,7 +42,7 @@ func main() {
 	ticker := time.NewTicker(time.Second)
 	defer ticker.Stop()
 
-	for _ = range ticker.C {
+	for range ticker.C {
 		fmt.Println("tick")
 	}
 }

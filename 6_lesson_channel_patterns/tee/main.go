@@ -5,9 +5,9 @@ import (
 	"sync"
 )
 
-func Tee(in chan string) (chan string, chan string) {
-	out1 := make(chan string)
-	out2 := make(chan string)
+func Tee(in chan int) (chan int, chan int) {
+	out1 := make(chan int)
+	out2 := make(chan int)
 
 	go func() {
 		defer close(out1)
@@ -23,11 +23,11 @@ func Tee(in chan string) (chan string, chan string) {
 }
 
 func main() {
-	ch := make(chan string)
+	ch := make(chan int)
 	go func() {
 		defer close(ch)
 		for i := 0; i < 5; i++ {
-			ch <- "test"
+			ch <- i
 		}
 	}()
 
@@ -39,14 +39,14 @@ func main() {
 	go func() {
 		defer wg.Done()
 		for value := range ch1 {
-			fmt.Println("ch1: " + value)
+			fmt.Println("ch1: ", value)
 		}
 	}()
 
 	go func() {
 		defer wg.Done()
 		for value := range ch2 {
-			fmt.Println("ch2: " + value)
+			fmt.Println("ch2: ", value)
 		}
 	}()
 
