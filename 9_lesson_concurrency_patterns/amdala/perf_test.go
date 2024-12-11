@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// go test -bench=. bench_test.go
+// go test -bench=. perf_test.go
 // a = 1 / ((1 - P) + (P / S))
 
 func calculate(parallelFactor int) {

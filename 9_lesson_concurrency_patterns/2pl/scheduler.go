@@ -17,8 +17,9 @@ type txLock struct {
 }
 
 type Scheduler struct {
-	mutex      sync.Mutex
-	locks      map[string]*txLock
+	mutex sync.Mutex
+	locks map[string]*txLock
+
 	storage    storage
 	identifier int32
 }
@@ -59,7 +60,7 @@ func (s *Scheduler) set(txId int32, key, value string) txOperation {
 		operation.value = &previousValue
 	} else if atomic.LoadInt32(&lock.kind) == shared {
 		lock.mutex.RUnlock()
-		// unsafe with rollback
+		// unsafe
 		lock.mutex.Lock()
 		atomic.StoreInt32(&lock.kind, exclusive)
 		previousValue := s.storage.Get(key)

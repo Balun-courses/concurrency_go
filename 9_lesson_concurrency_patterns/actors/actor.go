@@ -13,14 +13,12 @@ type Message struct {
 }
 
 type actor struct {
-	address  string
 	inbox    chan Message
 	executor Executor
 }
 
-func newActor(address string, executor Executor) *actor {
+func newActor(executor Executor) *actor {
 	obj := &actor{
-		address:  address,
 		inbox:    make(chan Message, inboxSize),
 		executor: executor,
 	}

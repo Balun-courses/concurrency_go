@@ -31,7 +31,7 @@ func (am *ActorManager) CreateActor(address string, executor Executor) error {
 		return errors.New("already exists")
 	}
 
-	am.actors[address] = newActor(address, executor)
+	am.actors[address] = newActor(executor)
 	return nil
 }
 
@@ -44,6 +44,7 @@ func (am *ActorManager) SendMessage(message Message) error {
 		return errors.New("not found")
 	}
 
+	// may be without lock
 	obj.receive(message)
 	return nil
 }
