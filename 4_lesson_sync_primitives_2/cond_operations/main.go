@@ -10,6 +10,8 @@ func waitWithoutLock() {
 func waitAfterSignal() {
 	cond := sync.NewCond(&sync.Mutex{})
 
+	cond.Signal()
+
 	cond.L.Lock()
 	cond.Wait()
 	cond.L.Unlock()
