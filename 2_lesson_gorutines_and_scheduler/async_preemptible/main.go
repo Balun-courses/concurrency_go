@@ -1,20 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"runtime"
 )
 
 func infiniteLoop(str string) {
 	for {
-		fmt.Println(str)
+		log.Println(str)
 	}
 }
 
 func loop(str string) {
-	for i := 0; i < 1; i++ {
+	for i := 0; i < 5; i++ {
 		runtime.Gosched()
-		fmt.Println(str)
+		log.Println(str)
 	}
 }
 
