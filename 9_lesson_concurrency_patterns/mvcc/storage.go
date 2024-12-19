@@ -1,8 +1,9 @@
 package main
 
 import (
-	"github.com/igrmk/treemap/v2"
 	"sync"
+
+	"github.com/igrmk/treemap/v2"
 )
 
 type VersionedKey struct {
@@ -11,13 +12,11 @@ type VersionedKey struct {
 }
 
 func Less(lhs, rhs VersionedKey) bool {
-	if lhs.Key < rhs.Key {
-		return true
-	} else if lhs.Key == rhs.Key {
+	if lhs.Key == rhs.Key {
 		return lhs.TxID < rhs.TxID
-	} else {
-		return false
 	}
+
+	return lhs.Key < rhs.Key
 }
 
 type InMemoryStorage struct {
@@ -49,7 +48,7 @@ func (s *InMemoryStorage) ExistsBetween(readTxID, writeTxID int32, modified map[
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	for key, _ := range modified {
+	for key := range modified {
 		lowerBound := VersionedKey{
 			Key:  key,
 			TxID: readTxID,

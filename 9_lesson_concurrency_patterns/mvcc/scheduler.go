@@ -44,7 +44,7 @@ func (s *Scheduler) get(txId int32, key string) string {
 
 	if l != nil {
 		ownerTxID := l.locked.Load()
-		for ownerTxID != 0 && ownerTxID < s.identifier {
+		for ownerTxID != 0 && ownerTxID < txId {
 			runtime.Gosched()
 			ownerTxID = l.locked.Load()
 		}
@@ -57,7 +57,7 @@ func (s *Scheduler) get(txId int32, key string) string {
 func (s *Scheduler) commit(readTxId int32, modified map[string]string) bool {
 	var locks []*lock
 	withLock(&s.mutex, func() {
-		for key, _ := range modified {
+		for key := range modified {
 			l := s.locks[key]
 			if l == nil {
 				l = &lock{}
@@ -74,7 +74,7 @@ func (s *Scheduler) commit(readTxId int32, modified map[string]string) bool {
 
 	defer s.releaseLocks(locks)
 
-	writeTxID := atomic.AddInt32(&s.identifier, 1)
+	writeTxID := atomic.AddInt32(&s.identifier, 1) // after locks
 	if s.storage.ExistsBetween(readTxId, writeTxID, modified) {
 		return false
 	}

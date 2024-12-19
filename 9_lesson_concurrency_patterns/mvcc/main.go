@@ -28,7 +28,7 @@ func main() {
 		tx2.Set("key_2", "value_2")
 		time.Sleep(time.Millisecond * 200)
 		tx2.Set("key_1", "value_1")
-		tx2.Commit()
+		_ = tx2.Commit()
 	}
 
 	tx1 := s.StartTransaction()
@@ -36,7 +36,7 @@ func main() {
 	go parallelTx2()
 	time.Sleep(time.Millisecond * 100)
 	tx1.Get("key_2")
-	tx1.Commit()
+	_ = tx1.Commit()
 
 	wg.Wait()
 }
