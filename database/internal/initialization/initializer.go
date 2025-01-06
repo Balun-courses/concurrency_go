@@ -133,5 +133,7 @@ func (i *Initializer) StartDatabase(ctx context.Context) error {
 		return nil
 	})
 
-	return group.Wait()
+	err = group.Wait()
+	i.logger.Sync()
+	return err
 }

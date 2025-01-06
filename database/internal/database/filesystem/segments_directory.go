@@ -18,6 +18,7 @@ func NewSegmentsDirectory(directory string) *SegmentsDirectory {
 func (d *SegmentsDirectory) ForEach(action func([]byte) error) error {
 	files, err := os.ReadDir(d.directory)
 	if err != nil {
+		// TODO: need to create a directory if it is missing
 		return fmt.Errorf("failed to scan directory with segments: %w", err)
 	}
 

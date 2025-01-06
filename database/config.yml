@@ -5,7 +5,7 @@ wal:
   flushing_batch_length: 100
   flushing_batch_timeout: "10ms"
   max_segment_size: "1KB"
-  data_directory: "./local_test/wal"
+  data_directory: "./wal"
 network:
   address: "127.0.0.1:3223"
   max_connections: 100
@@ -13,4 +13,4 @@ network:
   idle_timeout: 5m
 logging:
   level: "debug"
-  output: "./local_test/log/output.log"
+  output: "./spider.log"

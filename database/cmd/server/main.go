@@ -12,9 +12,7 @@ import (
 	"spider/internal/initialization"
 )
 
-var (
-	ConfigFileName = os.Getenv("CONFIG_FILE_NAME")
-)
+var ConfigFileName = os.Getenv("CONFIG_FILE_NAME")
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

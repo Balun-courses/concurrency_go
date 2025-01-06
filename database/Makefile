@@ -16,8 +16,11 @@ run-server-with-config: build-server
 run-cli: build-cli
 	./${CLI_APP_NAME} $(ARGS)
 
-test:
-	go test ./...
+run_unit_test:
+	go test ./internal/...
 
-test_coverage:
+run_e2e_test: build-server
+	go test ./test/...
+
+run_test_coverage:
 	go test ./... -coverprofile=coverage.out
